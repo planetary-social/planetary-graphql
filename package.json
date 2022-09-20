@@ -1,0 +1,19 @@
+{
+  "name": "planetary-pub2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/planetary-social/planetary-pub2.git"
+  },
+  "author": "Cherese Eriepa",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/planetary-social/planetary-pub2/issues"
+  },
+  "homepage": "https://github.com/planetary-social/planetary-pub2#readme"
+}
