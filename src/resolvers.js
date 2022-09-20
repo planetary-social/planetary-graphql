@@ -11,12 +11,12 @@ module.exports = function Resolvers (sbot) {
 
   const resolvers = {
     Query: {
-      
+
       getPost: (_, { key }) => getPost(key),
       // - [ ] get a message, give a message key
       // - [ ] get a thread of messages, given a message key
       // getThread: (_, { key }) => getThread(key), // This looks the same as getPost
-      
+
       getFeed: (_, opts) => getFeed(opts),
       // - [ ] get a feed of messages, given a feedId
       // - [ ] get a feed of messages, given a username
@@ -27,8 +27,7 @@ module.exports = function Resolvers (sbot) {
       // - [ ] get counts of: followers, follows, posts, given a feedId
       // - [ ] get counts of: follower, follows, posts given a username
 
-      
-      getProfile: (_, opts) => getProfile(opts),
+      getProfile: (_, opts) => getProfile(opts)
       // - [ ] get a profile by username
       // - [ ] get a profile by feedId
 

@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:raw && npm run lint",
+    "test:raw": "NODE_ENV=test tape test/**/*.test.js | tap-arc",
+    "lint": "standard --fix"
   },
   "repository": {
     "type": "git",
@@ -15,5 +17,13 @@
   "bugs": {
     "url": "https://github.com/planetary-social/planetary-pub2/issues"
   },
-  "homepage": "https://github.com/planetary-social/planetary-pub2#readme"
+  "homepage": "https://github.com/planetary-social/planetary-pub2#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "esm": "^3.2.25",
+    "husky": "^7.0.4",
+    "standard": "^17.0.0",
+    "tap-arc": "^0.3.5",
+    "tape": "^5.3.2"
+  }
 }
