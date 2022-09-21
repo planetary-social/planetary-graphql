@@ -1,7 +1,19 @@
 const test = require('tape')
 
-test('init', (t) => {
-  t.plan(1)
+const GraphqlServer = require('../src/graphql-server')
 
-  t.equal(1, 1)
+test('init', (t) => {
+  const ssb = {}
+  const graphqlServer = GraphqlServer(ssb)
+
+  const opts = { port: 4000 } // TODO: generate unique port
+  graphqlServer(opts, (err, httpServer) => {
+    t.error(err, 'starts graphql server with no error')
+
+    t.pass('woo')
+
+    httpServer.close()
+
+    t.end()
+  })
 })

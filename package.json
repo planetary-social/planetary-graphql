@@ -18,7 +18,12 @@
     "url": "https://github.com/planetary-social/planetary-pub2/issues"
   },
   "homepage": "https://github.com/planetary-social/planetary-pub2#readme",
-  "dependencies": {},
+  "dependencies": {
+    "apollo-server-core": "^3.10.2",
+    "apollo-server-express": "^3.10.2",
+    "express": "^4.18.1",
+    "graphql": "^16.6.0"
+  },
   "devDependencies": {
     "esm": "^3.2.25",
     "husky": "^7.0.4",
