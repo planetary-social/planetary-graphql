@@ -19,11 +19,11 @@ module.exports = function Resolvers () {
     return profile
   }
 
-  const getFollowersIds = (feedId) => {
+  const getFollowersIds = (id) => {
     return new Promise((resolve, reject) => {
       ssb.db.query(
         where(
-          contact(feedId)
+          contact(id)
         ),
         toCallback((err, msgs) => {
           if (err) return reject(err)
@@ -42,6 +42,46 @@ module.exports = function Resolvers () {
       )
     })
   }
+
+  const getFollowingIds = (id) => {
+    return new Promise((resolve, reject) => {
+      ssb.friends.hops({ start: id, max: 1 }, (err, following) => {
+        if (err) return reject(err)
+
+        pull(
+          pull.values(Object.entries(following)),
+          pull.filter(([id, status]) => status === 1),
+          pull.map(([id]) => id),
+          pull.unique(),
+          pull.collect((err, followingIds) => {
+            if (err) reject(err)
+            else resolve(followingIds)
+          })
+        )
+      })
+    })
+  }
+
+  const getProfiles = (ids) => {
+    return new Promise((resolve, reject) => {
+      pull(
+        pull.values(ids),
+        paraMap((id, cb) => {
+          getProfile(id)
+            .then(profile => cb(null, profile))
+            .catch(err => cb(err))
+        }, 5),
+        pull.filter(Boolean),
+        // TODO: This removes the profiles that came back as null, we might want to show something in place of that
+        // e.g. someone who hasnt opted in to publicWebHosting
+        pull.collect((err, profiles) => {
+          if (err) reject(err)
+          else resolve(profiles)
+        })
+      )
+    })
+  }
+
 
   return {
     ssb,
@@ -77,58 +117,23 @@ module.exports = function Resolvers () {
             )
           })
         },
+
         followers: async (parent) => {
           const ids = await getFollowersIds(parent.id)
-
-          return new Promise((resolve, reject) => {
-            pull(
-              pull.values(ids),
-              paraMap((id, cb) => {
-                getProfile(id)
-                  .then(profile => cb(null, profile))
-                  .catch(err => cb(err))
-              }, 5),
-              pull.filter(Boolean),
-              // TODO: This removes the profiles that came back as null, we might want to show something in place of that
-              // e.g. someone who hasnt opted in to publicWebHosting
-              pull.collect((err, followers) => {
-                if (err) reject(err)
-                else resolve(followers)
-              })
-            )
-          })
+          return getProfiles(ids)
         },
         followersCount: async (parent) => {
           const ids = await getFollowersIds(parent.id)
-
           return get(ids, 'length')
         },
-        following: (parent) => {
-          return new Promise((resolve, reject) => {
-            ssb.friends.hops({ start: parent.id, max: 1 }, (err, following) => {
-              if (err) return reject(err)
 
-              pull(
-                pull.values(Object.entries(following)),
-                pull.filter(([id, status]) => status === 1),
-                pull.map(([id]) => id),
-                pull.unique(),
-                // TODO: limit?
-                paraMap((id, cb) => {
-                  getProfile(id)
-                    .then(profile => cb(null, profile))
-                    .catch(err => cb(err))
-                }, 5),
-                pull.filter(Boolean),
-                // TODO: This removes the profiles that came back as null, we might want to show something in place of that
-                // e.g. someone who hasnt opted in to publicWebHosting
-                pull.collect((err, following) => {
-                  if (err) reject(err)
-                  else resolve(following)
-                })
-              )
-            })
-          })
+        following: async (parent) => {
+          const ids = await getFollowingIds(parent.id)
+          return getProfiles(ids)
+        },
+        followingCount: async (parent) => {
+          const ids = await getFollowingIds(parent.id)
+          return get(ids, 'length')
         }
       },
       Thread: {
