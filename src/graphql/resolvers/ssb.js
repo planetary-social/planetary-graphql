@@ -66,13 +66,15 @@ module.exports = function Resolvers () {
                     pull.filter(msg => msg.value.content.following),
                     pull.map(msg => msg.value.author),
                     pull.unique(),
-                    // TODO: could introduce a limit
+                    // TODO: limit?
                     paraMap((id, cb) => {
                       getProfile(id)
                         .then(profile => cb(null, profile))
                         .catch(err => cb(err))
                     }, 5),
-                    pull.filter(Boolean), // NOTE: This removes the profiles that came back as null, we might want to show something in place of that e.g. someone who hasnt opted in to publicWebHosting
+                    pull.filter(Boolean),
+                    // TODO: This removes the profiles that came back as null, we might want to show something in place of that
+                    // e.g. someone who hasnt opted in to publicWebHosting
                     pull.collect((err, followers) => {
                       if (err) reject(err)
                       else resolve(followers)
@@ -83,9 +85,33 @@ module.exports = function Resolvers () {
           })
         },
         following: (parent) => {
+          return new Promise((resolve, reject) => {
+            ssb.friends.hops({ start: parent.id, max: 1 }, (err, following) => {
+              if (err) return reject(err)
+
+              pull(
+                pull.values(Object.entries(following)),
+                pull.filter(([id, status]) => status === 1),
+                pull.map(([id]) => id),
+                pull.unique(),
+                // TODO: limit?
+                paraMap((id, cb) => {
+                  getProfile(id)
+                    .then(profile => cb(null, profile))
+                    .catch(err => cb(err))
+                }, 5),
+                pull.filter(Boolean),
+                // TODO: This removes the profiles that came back as null, we might want to show something in place of that
+                // e.g. someone who hasnt opted in to publicWebHosting
+                pull.collect((err, following) => {
+                  if (err) reject(err)
+                  else resolve(following)
+                })
+              )
+            })
+          })
         }
       },
-
       Thread: {
         // messages: (parent) => { }
       },
