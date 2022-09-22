@@ -51,6 +51,12 @@ module.exports = function GraphqlServer (ssb) {
       plugins: [ApolloServerPluginLandingPageGraphQLPlayground({ httpServer })]
     })
 
+    ssb.close.hook((close, args) => {
+      httpServer.close()
+      close(...args)
+    })
+  
+
     server.start()
       .then(() => {
         server.applyMiddleware({ app })
@@ -60,7 +66,7 @@ module.exports = function GraphqlServer (ssb) {
 
           console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
 
-          cb(null, httpServer)
+          cb(null, server)
         })
       })
   }

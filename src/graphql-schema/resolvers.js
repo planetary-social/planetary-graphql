@@ -1,4 +1,5 @@
 // const ssbResolvers = require('./ssb')
+const { promisify: p } = require('util')
 
 module.exports = function Resolvers (sbot) {
   // const {
@@ -6,7 +7,7 @@ module.exports = function Resolvers (sbot) {
   //   gettersWithCache
   // } = ssbResolvers(sbot)
 
-  function getProfile (opts) {
+  function getProfileTest (opts) {
     return {
       id: opts.id,
       name: 'Cherese',
@@ -25,9 +26,19 @@ module.exports = function Resolvers (sbot) {
     }
   }
 
+  function getProfileDb2 (opts, cb) {
+    const { feedId } = opts
+
+    sbot.aboutSelf.get(feedId, (err, profile) => {
+      if (profile.publicWebhosting !== true) cb(null, null)
+
+      cb(null, profile)
+    })
+  }
+
   const resolvers = {
     Query: {
-      getProfile: (_, opts) => getProfile(opts)
+      getProfile: (_, opts) => p(getProfileDb2)(opts)
 
       // TODO
       // getThread(key: ID!, preview: Boolean): Thread
