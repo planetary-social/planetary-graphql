@@ -1,5 +1,5 @@
 const pull = require('pull-stream')
-const SSB = require('./src/ssb-server')
+const SSB = require('./ssb-server')
 
 const ssb = SSB()
 

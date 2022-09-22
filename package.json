@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npm run test:raw && npm run lint",
     "test:raw": "NODE_ENV=test tape test/**/*.test.js | tap-arc",
+    "sync": "node src/ssb-sync.js",
     "lint": "standard --fix"
   },
   "repository": {
