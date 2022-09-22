@@ -22,18 +22,21 @@
     "apollo-server-core": "^3.10.2",
     "apollo-server-express": "^3.10.2",
     "express": "^4.18.1",
-    "graphql": "^16.6.0"
+    "graphql": "^15.0.0",
+    "pull-stream": "^3.6.14",
+    "run-waterfall": "^1.1.7",
+    "ssb-about-self": "^1.1.0",
+    "ssb-caps": "^1.1.0",
+    "ssb-conn": "^6.0.3",
+    "ssb-db2": "^6.2.1",
+    "ssb-ebt": "^9.1.0",
+    "ssb-friends": "^5.1.7",
+    "ssb-replication-scheduler": "^2.0.5"
   },
   "devDependencies": {
     "apollo-server-testing": "^2.25.3",
     "esm": "^3.2.25",
     "husky": "^7.0.4",
-    "scuttle-testbot": "^1.10.1",
-    "ssb-caps": "^1.1.0",
-    "ssb-db2": "^6.2.1",
-    "ssb-ebt": "^9.1.0",
-    "ssb-friends": "^5.1.7",
-    "ssb-replication-scheduler": "^2.0.5",
     "standard": "^17.0.0",
     "tap-arc": "^0.3.5",
     "tape": "^5.6.1"

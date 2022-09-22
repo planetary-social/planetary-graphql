@@ -1,7 +1,7 @@
 const { promisify: p } = require('util')
 
 module.exports = function Resolvers () {
-  const ssb = {} // MIX TODO
+  const ssb = SSB()
 
   return {
     Query: {
@@ -42,3 +42,4 @@ module.exports = function Resolvers () {
     }
   }
 }
+
