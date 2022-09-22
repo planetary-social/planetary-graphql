@@ -1,3 +1,7 @@
 const graphqlServer = require('./src/graphql')
 
-graphqlServer()
+if (process.env.NODE_ENV === 'test') {
+  module.exports = graphqlServer
+} else {
+  graphqlServer()
+}

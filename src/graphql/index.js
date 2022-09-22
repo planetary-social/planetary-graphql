@@ -1,6 +1,8 @@
 
 const { ApolloServer } = require('apollo-server-express')
-const { ApolloServerPluginLandingPageGraphQLPlayground } = require('apollo-server-core')
+const {
+  ApolloServerPluginLandingPageGraphQLPlayground
+} = require('apollo-server-core')
 
 const http = require('http')
 const express = require('express')
@@ -19,14 +21,26 @@ module.exports = async function graphqlServer (opts = { port: 4000 }, cb) {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
-    plugins: [ApolloServerPluginLandingPageGraphQLPlayground({ httpServer })]
+    plugins: [
+      ApolloServerPluginLandingPageGraphQLPlayground({ httpServer }),
+      {
+        async serverWillStart () {
+          return {
+            async serverWillStop () {
+              console.log('stopping')
+              ssb.close()
+            }
+          }
+        }
+      }
+    ]
   })
 
+  // TODO: could just close the httpServer in serverWillStop
   ssb.close.hook((close, args) => {
     httpServer.close()
     close(...args)
   })
-
 
   server.start()
     .then(() => {

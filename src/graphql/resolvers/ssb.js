@@ -27,6 +27,7 @@ module.exports = function Resolvers () {
           return new Promise((resolve, reject) => {
             pull(
               ssb.threads.profile({ id: parent.id, reverse: true, threadMaxSize }),
+              // TODO: we have to filter to only include messages from those who have opted-in to publicWebHosting
               pull.take(limit || 10),
               pull.collect((err, threads) => {
                 if (err) return reject(err)
