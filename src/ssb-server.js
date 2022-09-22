@@ -43,8 +43,10 @@ module.exports = function SSB (opts = {}) {
     // TODO prune down to only those things needed by db2 - speed up
     .use(require('ssb-db2'))
     .use(require('ssb-db2/compat')) // include all compatibility plugins
-    .use(require('ssb-friends'))
     .use(require('ssb-about-self'))
+    .use(require('ssb-threads'))
+
+    .use(require('ssb-friends'))
     .use(require('ssb-ebt'))
     .use(require('ssb-conn'))
     .use(require('ssb-replication-scheduler'))

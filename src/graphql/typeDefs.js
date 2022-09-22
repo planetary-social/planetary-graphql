@@ -5,9 +5,10 @@ module.exports = gql`
     id: ID
     name: String
     image: String
+    description: String
     # publicWebHosting
 
-    threads: [Thread]
+    threads(limit: Int, threadMaxSize: Int): [Thread]
     # threads (started: Boolean): [Thread]
     # threadCount: Int
     
@@ -19,8 +20,8 @@ module.exports = gql`
   }
 
   type Thread {
-    root: Comment
-    replies: [Comment]
+    id: ID
+    messages: [Comment]
     # repliesCount: Int
   }
 
