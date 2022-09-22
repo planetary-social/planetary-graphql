@@ -5,40 +5,46 @@ module.exports = function Resolvers () {
   const ssb = SSB()
 
   return {
-    Query: {
-      getProfile: async (_, opts) => {
-        const profile = await p(ssb.aboutSelf.get)(opts.id)
-          .catch(err => console.warn(err))
-        if (!profile) return {}
-        if (profile.publicWebhosting !== true) return {}
-      }
-    },
+    ssb,
+    resolvers: {
+      Query: {
+        getProfile: async (_, opts) => {
+          const profile = await p(ssb.aboutSelf.get)(opts.id)
 
-    Profile: {
-      threads: (parent) => {
+          if (!profile) return null
+          if (profile.publicWebHosting !== true) return null
+          
+          return profile
+        }
       },
-      followers: (parent) => {
-      },
-      following: (parent) => {
-      }
-    },
 
-    Thread: {
-      root: (parent) => {
+      Profile: {
+        threads: (parent) => {
+          
+        },
+        followers: (parent) => {
+        },
+        following: (parent) => {
+        }
       },
-      replies: (parent) => {
-      }
-    },
 
-    Comment: {
-      replies: (parent) => {
+      Thread: {
+        root: (parent) => {
+        },
+        replies: (parent) => {
+        }
       },
-      votes: (parent) => {
-      }
-    },
 
-    Vote: {
-      author: (parent) => {
+      Comment: {
+        replies: (parent) => {
+        },
+        votes: (parent) => {
+        }
+      },
+
+      Vote: {
+        author: (parent) => {
+        }
       }
     }
   }

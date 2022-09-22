@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "npm run test:raw && npm run lint",
     "test:raw": "NODE_ENV=test tape test/**/*.test.js | tap-arc",
     "sync": "node src/ssb-sync.js",
@@ -35,11 +36,18 @@
     "ssb-replication-scheduler": "^2.0.5"
   },
   "devDependencies": {
+    "@apollo/client": "^3.6.9",
+    "apollo-server-integration-testing": "^3.0.0",
     "apollo-server-testing": "^2.25.3",
     "esm": "^3.2.25",
+    "graphql": "^15.8.0",
     "husky": "^7.0.4",
     "standard": "^17.0.0",
     "tap-arc": "^0.3.5",
     "tape": "^5.6.1"
+  },
+  "resolutions": {
+    "apollo-server-integration-testing/apollo-server-core": "^3.6.1",
+    "apollo-server-integration-testing/apollo-server-express": "^3.6.1"
   }
 }

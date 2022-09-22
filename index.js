@@ -1,1 +1,3 @@
-module.exports = require('./src/graphql')
+const graphqlServer = require('./src/graphql')
+
+graphqlServer()
