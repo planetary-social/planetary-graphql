@@ -1,4 +1,5 @@
 const { promisify: p } = require('util')
+const SSB = require('../../ssb-server')
 
 module.exports = function Resolvers () {
   const ssb = SSB()
@@ -42,4 +43,3 @@ module.exports = function Resolvers () {
     }
   }
 }
-
