@@ -41,7 +41,6 @@
   "devDependencies": {
     "@apollo/client": "^3.6.9",
     "apollo-server-integration-testing": "^3.0.0",
-    "apollo-server-testing": "^2.25.3",
     "esm": "^3.2.25",
     "graphql": "^15.8.0",
     "husky": "^7.0.4",

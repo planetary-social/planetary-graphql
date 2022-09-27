@@ -11,6 +11,12 @@ module.exports = function Resolvers () {
 
   const ssbPort = ssb.config.serveBlobs && ssb.config.serveBlobs.port
 
+  /**
+   * Gets the profile (about) of the given profile id.
+   * NOTE: only returns a profile for those who have
+   * opted in to publicWebHosting
+   * @param {string} id - id of a profile
+   */
   const getProfile = async (id) => {
     const profile = await p(ssb.aboutSelf.get)(id)
 
@@ -21,6 +27,10 @@ module.exports = function Resolvers () {
     return profile
   }
 
+  /**
+   * Gets all the profile ids of followers of the given profile id
+   * @param {string} id - id of a profile
+   */
   const getFollowersIds = (id) => {
     return new Promise((resolve, reject) => {
       ssb.db.query(
@@ -45,6 +55,10 @@ module.exports = function Resolvers () {
     })
   }
 
+  /**
+   * Gets all the profile ids of those following the given profile id
+   * @param {string} id - id of a profile
+   */
   const getFollowingIds = (id) => {
     return new Promise((resolve, reject) => {
       ssb.friends.hops({ start: id, max: 1 }, (err, following) => {
@@ -64,6 +78,10 @@ module.exports = function Resolvers () {
     })
   }
 
+  /**
+   * Gets all the profiles for a given array of profile ids
+   * @param {array} ids - array of profile ids
+   */
   const getProfiles = (ids) => {
     return new Promise((resolve, reject) => {
       pull(
@@ -84,9 +102,11 @@ module.exports = function Resolvers () {
     })
   }
 
-  // TODO: might need to get rid of unlikes (value=0 and expression=Unlike)
-  // TODO: this doesnt handle multiple votes from the same author... does it need to handle these types
-  // of votes when they are doing different things OR the same thing even...
+  /**
+   * Gets all the votes on a message
+   * TODO: doesnt handle unlikes and duplicates yet.
+   * @param {string} id - id of a message
+   */
   const getVotes = (id) => {
     return new Promise((resolve, reject) => {
       ssb.db.query(
@@ -117,6 +137,78 @@ module.exports = function Resolvers () {
     })
   }
 
+  /**
+   * Gets all the threads initiated by a certain profile id 
+   * @param {string} id - id of a profile
+   * @param {object} opts - optional parameters
+   * @param {int} [opts.limit=10] - max amount of threads to return
+   * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
+   */
+  const getThreads = (id, opts) => {
+    const { threadMaxSize, limit = 10 } = opts
+    return new Promise((resolve, reject) => {
+      pull(
+        ssb.threads.profile({ id, reverse: true, threadMaxSize }),
+        pull.take(limit),
+        pull.collect((err, threads) => {
+          if (err) return reject(err)
+
+          const res = threads.map(({ messages }) => {
+            return {
+              id: messages[0].key,
+              messages
+            }
+          })
+
+          resolve(res)
+        })
+      )
+    })
+  }
+
+  /**
+   * Takes the messages from a thread and maps them based on whether
+   * a profile is returned for the author of that message or not.
+   * Messages from someone who hasnt yet opted in to publicWebHosting or
+   * a profile wasnt found for them, will return empty values
+   * @param {array} messages - messages in a thread
+   */
+  const mapMessages = (messages) => {
+    return new Promise((resolve, reject) => {
+      pull(
+        pull.values(messages),
+        paraMap((msg, cb) => {
+          getProfile(msg.value.author)
+            .then(profile => {
+              // if there was a profile, thats great
+              if (profile) {
+                return cb(null, {
+                  id: msg.key,
+                  author: msg.value.author,
+                  text: (msg.value.content.text || ''),
+                  timestamp: msg.value.timestamp // asserted publish time
+                })
+              }
+
+              // if their isnt (could be they havent yet opted in to publicWebHosting)
+              // we need to return an empty msg instead
+              cb(null, {
+                id: null,
+                text: null,
+                timestamp: msg.timestamp,
+                author: null
+              })
+            })
+            .catch(err => cb(err))
+        }, 5),
+        pull.collect((err, messages) => {
+          if (err) reject(err)
+          else resolve(messages)
+        })
+      )
+    })
+  }
+
   return {
     ssb,
     resolvers: {
@@ -125,36 +217,8 @@ module.exports = function Resolvers () {
       },
 
       Profile: {
-        threads: (parent, { limit, threadMaxSize }) => {
-          return new Promise((resolve, reject) => {
-            pull(
-              ssb.threads.profile({ id: parent.id, reverse: true, threadMaxSize }),
-              // TODO: we have to filter to only include messages from those who have opted-in to publicWebHosting
-              pull.take(limit || 10),
-              pull.collect((err, threads) => {
-                if (err) return reject(err)
-
-                const res = threads.map(({ messages }) => {
-                  return {
-                    id: messages[0].key,
-                    messages: messages.map(msg => ({
-                      id: msg.key,
-                      author: msg.value.author,
-                      text: (msg.value.content.text || ''),
-                      timestamp: msg.value.timestamp // asserted publish time
-                    }))
-                  }
-                })
-
-                resolve(res)
-              })
-            )
-          })
-        },
-        image: (parent) => {
-          return toSSBUri(parent.image, { port: ssbPort })
-        },
-
+        image: (parent) => toSSBUri(parent.image, { port: ssbPort }),
+        threads: (parent, { limit, threadMaxSize }) => getThreads(parent.id, { limit, threadMaxSize }),
         followers: async (parent) => {
           const ids = await getFollowersIds(parent.id)
           return getProfiles(ids)
@@ -163,7 +227,6 @@ module.exports = function Resolvers () {
           const ids = await getFollowersIds(parent.id)
           return ids?.length
         },
-
         following: async (parent) => {
           const ids = await getFollowingIds(parent.id)
           return getProfiles(ids)
@@ -173,8 +236,9 @@ module.exports = function Resolvers () {
           return ids?.length
         }
       },
+
       Thread: {
-        // messages: (parent) => { }
+        messages: (parent) => mapMessages(parent.messages)
       },
 
       Comment: {
