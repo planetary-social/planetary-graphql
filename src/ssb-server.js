@@ -61,7 +61,7 @@ module.exports = function SSB (opts = {}) {
   const ssb = stack({
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),
     path: DB_PATH,
-    friends: { hops: 3 },
+    friends: { hops: 6 },
     ...opts
   })
 
