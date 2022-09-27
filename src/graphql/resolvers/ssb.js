@@ -1,8 +1,7 @@
 const { promisify: p } = require('util')
 const pull = require('pull-stream')
 const paraMap = require('pull-paraMap')
-const { where, contact, toCallback } = require('ssb-db2/operators')
-const get = require('lodash.get')
+const { where, contact, votesFor, toCallback } = require('ssb-db2/operators')
 const toSSBUri = require('ssb-serve-blobs/id-to-url')
 
 const SSB = require('../../ssb-server')
@@ -85,6 +84,39 @@ module.exports = function Resolvers () {
     })
   }
 
+  // TODO: might need to get rid of unlikes (value=0 and expression=Unlike)
+  // TODO: this doesnt handle multiple votes from the same author... does it need to handle these types
+  // of votes when they are doing different things OR the same thing even...
+  const getVotes = (id) => {
+    return new Promise((resolve, reject) => {
+      ssb.db.query(
+        where(
+          votesFor(id)
+        ),
+        toCallback((err, msgs) => {
+          if (err) return reject(err)
+
+          pull(
+            pull.values(msgs),
+            pull.map(msg => {
+              const vote = msg?.value?.content?.vote
+              return {
+                author: msg.value.author,
+                timestamp: msg.value.timestamp,
+                value: vote?.value,
+                expression: vote?.expression
+              }
+            }),
+            pull.collect((err, votes) => {
+              if (err) reject(err)
+              else resolve(votes)
+            })
+          )
+        })
+      )
+    })
+  }
+
   return {
     ssb,
     resolvers: {
@@ -129,7 +161,7 @@ module.exports = function Resolvers () {
         },
         followersCount: async (parent) => {
           const ids = await getFollowersIds(parent.id)
-          return get(ids, 'length')
+          return ids?.length
         },
 
         following: async (parent) => {
@@ -138,7 +170,7 @@ module.exports = function Resolvers () {
         },
         followingCount: async (parent) => {
           const ids = await getFollowingIds(parent.id)
-          return get(ids, 'length')
+          return ids?.length
         }
       },
       Thread: {
@@ -149,13 +181,16 @@ module.exports = function Resolvers () {
         author: (parent) => getProfile(parent.author),
         replies: (parent) => {
         },
-        votes: (parent) => {
+
+        votes: (parent) => getVotes(parent.id),
+        votesCount: async (parent) => {
+          const votes = await getVotes(parent.id)
+          return votes?.length
         }
       },
 
       Vote: {
-        author: (parent) => {
-        }
+        author: (parent) => getProfile(parent.author)
       }
     }
   }
