@@ -50,6 +50,8 @@ module.exports = function SSB (opts = {}) {
     .use(require('ssb-ebt'))
     .use(require('ssb-conn'))
     .use(require('ssb-replication-scheduler'))
+    .use(require('ssb-blobs'))
+    .use(require('ssb-serve-blobs'))
 
   const ssb = stack({
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),

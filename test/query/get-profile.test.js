@@ -14,6 +14,7 @@ test('get-profile', async t => {
       getProfile (id: $id) {
         id
         name
+        image
       }
     }
   `
@@ -37,7 +38,8 @@ test('get-profile', async t => {
     res.data.getProfile,
     {
       id: mixDesktopId,
-      name: 'mix.desktop'
+      name: 'mix.desktop',
+      image: 'http://localhost:26835/get/%26DxN64JjBNxEJUe2yjBpDW9eR9coxGhOQW6dYcU%2BK9%2FU%3D.sha256'
     },
     'returns correct profile details'
   )

@@ -1,13 +1,16 @@
 const { promisify: p } = require('util')
 const pull = require('pull-stream')
 const paraMap = require('pull-paraMap')
-const { where, contact, toCallback,  } = require('ssb-db2/operators')
+const { where, contact, toCallback } = require('ssb-db2/operators')
 const get = require('lodash.get')
+const toSSBUri = require('ssb-serve-blobs/id-to-url')
 
 const SSB = require('../../ssb-server')
 
 module.exports = function Resolvers () {
   const ssb = SSB()
+
+  const ssbPort = ssb.config.serveBlobs && ssb.config.serveBlobs.port
 
   const getProfile = async (id) => {
     const profile = await p(ssb.aboutSelf.get)(id)
@@ -82,7 +85,6 @@ module.exports = function Resolvers () {
     })
   }
 
-
   return {
     ssb,
     resolvers: {
@@ -116,6 +118,9 @@ module.exports = function Resolvers () {
               })
             )
           })
+        },
+        image: (parent) => {
+          return toSSBUri(parent.image, { port: ssbPort })
         },
 
         followers: async (parent) => {
