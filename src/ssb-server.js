@@ -40,9 +40,16 @@ const pubs = [
 
 module.exports = function SSB (opts = {}) {
   const stack = SecretStack({ caps })
-    // TODO prune down to only those things needed by db2 - speed up
-    .use(require('ssb-db2'))
-    .use(require('ssb-db2/compat')) // include all compatibility plugins
+    .use([
+      require('ssb-db2/core'),
+      require('ssb-classic'),
+      // require('ssb-box'),
+      // require('ssb-box2'),
+      require('ssb-db2/compat/ebt'),
+      // require('ssb-db2/compat/post'),
+      require('ssb-db2/compat/publish')
+      // require('ssb-db2/migrate'),
+    ])
     .use(require('ssb-about-self'))
     .use(require('ssb-threads'))
 
