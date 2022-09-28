@@ -25,6 +25,7 @@
     "apollo-server-express": "^3.10.2",
     "express": "^4.18.1",
     "graphql": "^15.0.0",
+    "pull-paramap": "^1.2.2",
     "pull-stream": "^3.6.14",
     "run-waterfall": "^1.1.7",
     "ssb-about-self": "^1.1.0",
