@@ -1,5 +1,7 @@
-const { promisify: p } = require('util')
 const pull = require('pull-stream')
+const pullParaMap = require('pull-paramap')
+const { where, type, descending, toPullStream } = require('ssb-db2/operators')
+const { promisify: p } = require('util')
 const SSB = require('../../ssb-server')
 
 module.exports = function Resolvers () {
@@ -15,11 +17,37 @@ module.exports = function Resolvers () {
     return profile
   }
 
+  const getProfiles = ({ limit }) => {
+    return new Promise((resolve, reject) => {
+      pull(
+        ssb.db.query(
+          where(
+            type('about')
+          ),
+          descending(), // latest => oldest
+          toPullStream()
+        ),
+        pull.filter(m => m.value.author === m.value.content.about),
+        pull.map(m => m.value.author),
+        pull.unique(),
+        pullParaMap((id, cb) => ssb.aboutSelf.get(id, (err, profile) => {
+          if (err) return cb(err)
+          profile.id = id
+          cb(null, profile)
+        }), 5),
+        pull.filter(profile => profile.publicWebHosting === true),
+        limit ? pull.take(limit) : null,
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
+      )
+    })
+  }
+
   return {
     ssb,
     resolvers: {
       Query: {
-        getProfile: (_, opts) => getProfile(opts.id)
+        getProfile: (_, opts) => getProfile(opts.id),
+        getProfiles: (_, opts) => getProfiles(opts)
       },
 
       Profile: {
