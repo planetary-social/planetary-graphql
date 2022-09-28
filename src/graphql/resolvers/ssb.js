@@ -1,9 +1,8 @@
-const { promisify: p } = require('util')
 const pull = require('pull-stream')
-const paraMap = require('pull-paraMap')
-const { where, contact, votesFor, toCallback } = require('ssb-db2/operators')
+const pullParaMap = require('pull-paramap')
+const { where, type, descending, toPullStream, votesFor, contact } = require('ssb-db2/operators')
+const { promisify: p } = require('util')
 const toSSBUri = require('ssb-serve-blobs/id-to-url')
-
 const SSB = require('../../ssb-server')
 
 module.exports = function Resolvers () {
@@ -33,23 +32,20 @@ module.exports = function Resolvers () {
    */
   const getFollowersIds = (id) => {
     return new Promise((resolve, reject) => {
-      ssb.db.query(
-        where(
-          contact(id)
+      pull(
+        ssb.db.query(
+          where(
+            contact(id)
+          ),
+          descending(), // latest => oldest
+          toPullStream()
         ),
-        toCallback((err, msgs) => {
-          if (err) return reject(err)
-
-          pull(
-            pull.values(msgs),
-            pull.filter(msg => msg.value.content.following),
-            pull.map(msg => msg.value.author),
-            pull.unique(),
-            pull.collect((err, followersIds) => {
-              if (err) reject(err)
-              else resolve(followersIds)
-            })
-          )
+        pull.filter(msg => msg.value.content.following),
+        pull.map(msg => msg.value.author),
+        pull.unique(),
+        pull.collect((err, followersIds) => {
+          if (err) reject(err)
+          else resolve(followersIds)
         })
       )
     })
@@ -82,11 +78,11 @@ module.exports = function Resolvers () {
    * Gets all the profiles for a given array of profile ids
    * @param {array} ids - array of profile ids
    */
-  const getProfiles = (ids) => {
+  const getProfilesForIds = (ids) => {
     return new Promise((resolve, reject) => {
       pull(
         pull.values(ids),
-        paraMap((id, cb) => {
+        pullParaMap((id, cb) => {
           getProfile(id)
             .then(profile => cb(null, profile))
             .catch(err => cb(err))
@@ -102,6 +98,31 @@ module.exports = function Resolvers () {
     })
   }
 
+  const getProfiles = ({ limit }) => {
+    return new Promise((resolve, reject) => {
+      pull(
+        ssb.db.query(
+          where(
+            type('about')
+          ),
+          descending(), // latest => oldest
+          toPullStream()
+        ),
+        pull.filter(m => m.value.author === m.value.content.about),
+        pull.map(m => m.value.author),
+        pull.unique(),
+        pullParaMap((id, cb) => ssb.aboutSelf.get(id, (err, profile) => {
+          if (err) return cb(err)
+          profile.id = id
+          cb(null, profile)
+        }), 5),
+        pull.filter(profile => profile.publicWebHosting === true),
+        limit ? pull.take(limit) : null,
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
+      )
+    })
+  }
+
   /**
    * Gets all the votes on a message
    * TODO: doesnt handle unlikes and duplicates yet.
@@ -109,29 +130,26 @@ module.exports = function Resolvers () {
    */
   const getVotes = (id) => {
     return new Promise((resolve, reject) => {
-      ssb.db.query(
-        where(
-          votesFor(id)
+      pull(
+        ssb.db.query(
+          where(
+            votesFor(id)
+          ),
+          descending(), // latest => oldest
+          toPullStream()
         ),
-        toCallback((err, msgs) => {
-          if (err) return reject(err)
-
-          pull(
-            pull.values(msgs),
-            pull.map(msg => {
-              const vote = msg?.value?.content?.vote
-              return {
-                author: msg.value.author,
-                timestamp: msg.value.timestamp,
-                value: vote?.value,
-                expression: vote?.expression
-              }
-            }),
-            pull.collect((err, votes) => {
-              if (err) reject(err)
-              else resolve(votes)
-            })
-          )
+        pull.map(msg => {
+          const vote = msg?.value?.content?.vote
+          return {
+            author: msg.value.author,
+            timestamp: msg.value.timestamp,
+            value: vote?.value,
+            expression: vote?.expression
+          }
+        }),
+        pull.collect((err, votes) => {
+          if (err) reject(err)
+          else resolve(votes)
         })
       )
     })
@@ -177,7 +195,7 @@ module.exports = function Resolvers () {
     return new Promise((resolve, reject) => {
       pull(
         pull.values(messages),
-        paraMap((msg, cb) => {
+        pullParaMap((msg, cb) => {
           getProfile(msg.value.author)
             .then(profile => {
               // if there was a profile, thats great
@@ -213,15 +231,16 @@ module.exports = function Resolvers () {
     ssb,
     resolvers: {
       Query: {
-        getProfile: (_, opts) => getProfile(opts.id)
+        getProfile: (_, opts) => getProfile(opts.id),
+        getProfiles: (_, opts) => getProfiles(opts)
       },
 
       Profile: {
         image: (parent) => toSSBUri(parent.image, { port: ssbPort }),
-        threads: (parent, { limit, threadMaxSize }) => getThreads(parent.id, { limit, threadMaxSize }),
+        threads: (parent, opts) => getThreads(parent.id, opts),
         followers: async (parent) => {
           const ids = await getFollowersIds(parent.id)
-          return getProfiles(ids)
+          return getProfilesForIds(ids)
         },
         followersCount: async (parent) => {
           const ids = await getFollowersIds(parent.id)
@@ -229,7 +248,7 @@ module.exports = function Resolvers () {
         },
         following: async (parent) => {
           const ids = await getFollowingIds(parent.id)
-          return getProfiles(ids)
+          return getProfilesForIds(ids)
         },
         followingCount: async (parent) => {
           const ids = await getFollowingIds(parent.id)
