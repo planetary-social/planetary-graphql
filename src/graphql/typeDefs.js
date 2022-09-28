@@ -45,6 +45,12 @@ module.exports = gql`
   type Query {
     getProfile(id: ID!): Profile
 
+    """
+    gets the peers who have opted into publicWebHosting
+
+    """
+    getProfiles(limit: Int): [Profile]
+
     # getThread(id: ID!, preview: Boolean): Thread
     # getSample(limit: Int): [Thread]
     # getProfiles(limit: Int) [Profile]
