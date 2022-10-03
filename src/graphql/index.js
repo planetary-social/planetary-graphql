@@ -18,7 +18,7 @@ module.exports = async function graphqlServer (opts = { port: 4000 }, cb) {
   const httpServer = http.createServer(app)
   const { ssb, resolvers } = SSBResolvers()
 
-  const server = new ApolloServer({
+  const apolloServer = new ApolloServer({
     typeDefs,
     resolvers,
     plugins: [
@@ -35,22 +35,21 @@ module.exports = async function graphqlServer (opts = { port: 4000 }, cb) {
     ]
   })
 
-  // TODO: could just close the httpServer in serverWillStop
   ssb.close.hook((close, args) => {
     httpServer.close()
     close(...args)
   })
 
-  server.start()
+  apolloServer.start()
     .then(() => {
-      server.applyMiddleware({ app })
+      apolloServer.applyMiddleware({ app })
 
       httpServer.listen(opts.port, (err) => {
         if (err) return cb(err)
 
-        console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
+        console.log(`🚀 Server ready at http://localhost:${opts.port}${apolloServer.graphqlPath}`)
 
-        cb(null, server)
+        cb(null, { apolloServer, ssb })
       })
     })
 }

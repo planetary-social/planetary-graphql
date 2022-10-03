@@ -43,10 +43,7 @@ module.exports = function Resolvers () {
         pull.filter(msg => msg.value.content.following),
         pull.map(msg => msg.value.author),
         pull.unique(),
-        pull.collect((err, followersIds) => {
-          if (err) reject(err)
-          else resolve(followersIds)
-        })
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
     })
   }
@@ -65,10 +62,7 @@ module.exports = function Resolvers () {
           pull.filter(([id, status]) => status === 1),
           pull.map(([id]) => id),
           pull.unique(),
-          pull.collect((err, followingIds) => {
-            if (err) reject(err)
-            else resolve(followingIds)
-          })
+          pull.collect((err, res) => err ? reject(err) : resolve(res))
         )
       })
     })
@@ -90,10 +84,7 @@ module.exports = function Resolvers () {
         pull.filter(Boolean),
         // TODO: This removes the profiles that came back as null, we might want to show something in place of that
         // e.g. someone who hasnt opted in to publicWebHosting
-        pull.collect((err, profiles) => {
-          if (err) reject(err)
-          else resolve(profiles)
-        })
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
     })
   }
@@ -147,16 +138,13 @@ module.exports = function Resolvers () {
             expression: vote?.expression
           }
         }),
-        pull.collect((err, votes) => {
-          if (err) reject(err)
-          else resolve(votes)
-        })
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
     })
   }
 
   /**
-   * Gets all the threads initiated by a certain profile id 
+   * Gets all the threads initiated by a certain profile id
    * @param {string} id - id of a profile
    * @param {object} opts - optional parameters
    * @param {int} [opts.limit=10] - max amount of threads to return
@@ -219,10 +207,7 @@ module.exports = function Resolvers () {
             })
             .catch(err => cb(err))
         }, 5),
-        pull.collect((err, messages) => {
-          if (err) reject(err)
-          else resolve(messages)
-        })
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
     })
   }
