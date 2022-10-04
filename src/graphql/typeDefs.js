@@ -29,9 +29,9 @@ module.exports = gql`
     id: ID
     author: Profile
     text: String
-    timestamp: Int
+    timestamp: Float
     votes: [Vote]
-    # votesCount: Int
+    votesCount: Int
     replies: [Comment]
   }
 
@@ -39,7 +39,8 @@ module.exports = gql`
   type Vote {
     author: Profile
     value: String  # like, heart, ghost, fire
-    timestamp: Int
+    timestamp: Float
+    expression: String
   }
 
   type Query {

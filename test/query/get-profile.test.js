@@ -14,6 +14,7 @@ test('get-profile', async t => {
       getProfile (id: $id) {
         id
         name
+        image
       }
     }
   `
@@ -37,15 +38,15 @@ test('get-profile', async t => {
     res.data.getProfile,
     {
       id: mixDesktopId,
-      name: 'mix.desktop'
+      name: 'mix.desktop',
+      image: 'http://localhost:26835/get/%26DxN64JjBNxEJUe2yjBpDW9eR9coxGhOQW6dYcU%2BK9%2FU%3D.sha256'
     },
     'returns correct profile details'
   )
 
   // has publicWebHosting = undefined
   // TODO: seems to not be returning anything for my profile
-  // const chereseId = '@oqZU8oiy6zdqFhOyN9EPXZJYtRbnG/L8zs3aYu0jh7E=.ed25519' // patchwork
-  const chereseId = '@H2WuEI1viXlArfBrK4YvpfEabrs9ARhy5agnx25A9Lg=.ed25519' // planetary
+  const chereseId = '@Z9Su0CwHlLBmS3W6CIva67B/9oiz24MVJCpMJ4lcDmE=.ed25519'
 
   res = await getProfile(chereseId)
   t.error(res.errors, 'no errors')

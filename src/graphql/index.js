@@ -27,7 +27,6 @@ module.exports = async function graphqlServer (opts = { port: 4000 }, cb) {
         async serverWillStart () {
           return {
             async serverWillStop () {
-              console.log('stopping')
               ssb.close()
             }
           }
