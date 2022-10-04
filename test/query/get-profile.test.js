@@ -1,14 +1,16 @@
 const test = require('tape')
 const gql = require('graphql-tag')
-const { createTestClient } = require('apollo-server-integration-testing')
+// const { createTestClient } = require('apollo-server-integration-testing')
 const ssbKeys = require('ssb-keys')
-
-const GraphqlServer = require('../../src/graphql')
+const { promisify: p } = require('util')
+// const GraphqlServer = require('../../src/graphql')
+const TestBot = require('../test-bot')
 
 test('get-profile', async t => {
-  t.plan(4)
-  const { ssb, apolloServer } = await GraphqlServer()
-  const client = createTestClient({ apolloServer })
+  t.plan(6)
+  const { apollo, ssb } = await TestBot()
+
+  // helpers
 
   const GET_PROFILE = gql`
     query getProfile ($id: ID!) {
@@ -21,53 +23,69 @@ test('get-profile', async t => {
   `
 
   function getProfile (id) {
-    return client.query(
+    return apollo.query(
       GET_PROFILE,
       { variables: { id } }
     )
   }
 
-  // publicWebHosting = true
-  const mixDesktopId = '@DIoOBMaI1f0mJg+5tUzZ7vgzCeeHh8+zGta4pOjc+k0=.ed25519'
-  const res = await getProfile(mixDesktopId)
+  const createProfile = (profile) => {
+    return p(ssb.db.create)(profile)
+  }
 
-  t.error(res.errors, 'no errors')
-  t.true(res.data.getProfile, 'returns a profile')
+  const alice = ssbKeys.generate()
+  const bob = ssbKeys.generate()
+  const carol = ssbKeys.generate()
 
-  // console.log(res)
+  // create alices profile
+  await createProfile({
+    content: {
+      type: 'about',
+      about: alice.id,
+      name: 'alice'
+      // publicWebHosting: undefined
+    },
+    keys: alice
+  })
 
+  let res = await getProfile(alice.id)
+  t.error(res.errors, 'get alices profile returns no errors')
+  t.false(res.data.getProfile, 'returns no profile for alice')
+
+  await createProfile({
+    content: {
+      type: 'about',
+      about: bob.id,
+      name: 'bob',
+      publicWebHosting: false
+    },
+    keys: bob
+  })
+
+  res = await getProfile(bob.id)
+  t.error(res.errors, 'get bobs profile returns no errors')
+  t.false(res.data.getProfile, 'returns no profile for bob')
+
+  await createProfile({
+    content: {
+      type: 'about',
+      about: carol.id,
+      name: 'carol',
+      publicWebHosting: true
+    },
+    keys: carol
+  })
+
+  res = await getProfile(carol.id)
+  t.error(res.errors, 'get carols profile returns no errors')
   t.deepEqual(
     res.data.getProfile,
     {
-      id: mixDesktopId,
-      name: 'mix.desktop',
-      image: 'http://localhost:26835/get/%26DxN64JjBNxEJUe2yjBpDW9eR9coxGhOQW6dYcU%2BK9%2FU%3D.sha256'
-    },
-    'returns correct profile details'
+      id: carol.id,
+      name: 'carol',
+      image: null
+    }
   )
 
-  // has publicWebHosting = undefined
-  // TODO: seems to not be returning anything for my profile
-  // const chereseId = '@Z9Su0CwHlLBmS3W6CIva67B/9oiz24MVJCpMJ4lcDmE=.ed25519'
-
-  // res = await getProfile(chereseId)
-  // t.error(res.errors, 'no errors')
-  // t.false(res.data.getProfile, 'doesnt return a profile')
-
-  // ssb.close()
-  // apolloServer.stop()
-
-  const alice = ssbKeys.generate()
-
-  ssb.db.publishAs(alice, {
-    type: 'about',
-    about: alice.id,
-    name: 'alice',
-    // publicWebHosting=undefined    
-  }, (err, res) => {
-    t.error(err)
-
-    console.log(res)
-    setTimeout(() => apolloServer.stop(), 3000)
-  })
+  ssb.close()
 })

@@ -3,11 +3,8 @@ const pullParaMap = require('pull-paramap')
 const { where, type, descending, toPullStream, votesFor, contact } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('ssb-serve-blobs/id-to-url')
-const SSB = require('../../ssb-server')
 
-module.exports = function Resolvers () {
-  const ssb = SSB()
-
+module.exports = function Resolvers (ssb) {
   const ssbPort = ssb.config.serveBlobs && ssb.config.serveBlobs.port
 
   /**
@@ -213,53 +210,53 @@ module.exports = function Resolvers () {
   }
 
   return {
-    ssb,
-    resolvers: {
-      Query: {
-        getProfile: (_, opts) => getProfile(opts.id),
-        getProfiles: (_, opts) => getProfiles(opts)
+    Query: {
+      getProfile: (_, opts) => getProfile(opts.id),
+      getProfiles: (_, opts) => getProfiles(opts)
+    },
+
+    Profile: {
+      image: (parent) => {
+        if (!parent.image) return
+        return toSSBUri(parent.image, { port: ssbPort })
       },
-
-      Profile: {
-        image: (parent) => toSSBUri(parent.image, { port: ssbPort }),
-        threads: (parent, opts) => getThreads(parent.id, opts),
-        followers: async (parent) => {
-          const ids = await getFollowersIds(parent.id)
-          return getProfilesForIds(ids)
-        },
-        followersCount: async (parent) => {
-          const ids = await getFollowersIds(parent.id)
-          return ids?.length
-        },
-        following: async (parent) => {
-          const ids = await getFollowingIds(parent.id)
-          return getProfilesForIds(ids)
-        },
-        followingCount: async (parent) => {
-          const ids = await getFollowingIds(parent.id)
-          return ids?.length
-        }
+      threads: (parent, opts) => getThreads(parent.id, opts),
+      followers: async (parent) => {
+        const ids = await getFollowersIds(parent.id)
+        return getProfilesForIds(ids)
       },
-
-      Thread: {
-        messages: (parent) => mapMessages(parent.messages)
+      followersCount: async (parent) => {
+        const ids = await getFollowersIds(parent.id)
+        return ids?.length
       },
-
-      Comment: {
-        author: (parent) => getProfile(parent.author),
-        replies: (parent) => {
-        },
-
-        votes: (parent) => getVotes(parent.id),
-        votesCount: async (parent) => {
-          const votes = await getVotes(parent.id)
-          return votes?.length
-        }
+      following: async (parent) => {
+        const ids = await getFollowingIds(parent.id)
+        return getProfilesForIds(ids)
       },
-
-      Vote: {
-        author: (parent) => getProfile(parent.author)
+      followingCount: async (parent) => {
+        const ids = await getFollowingIds(parent.id)
+        return ids?.length
       }
+    },
+
+    Thread: {
+      messages: (parent) => mapMessages(parent.messages)
+    },
+
+    Comment: {
+      author: (parent) => getProfile(parent.author),
+      replies: (parent) => {
+      },
+
+      votes: (parent) => getVotes(parent.id),
+      votesCount: async (parent) => {
+        const votes = await getVotes(parent.id)
+        return votes?.length
+      }
+    },
+
+    Vote: {
+      author: (parent) => getProfile(parent.author)
     }
   }
 }

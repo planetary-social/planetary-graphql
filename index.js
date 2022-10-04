@@ -1,3 +1,5 @@
 const graphqlServer = require('./src/graphql')
+const SSB = require('./src/ssb-server')
 
-graphqlServer()
+const ssb = SSB()
+graphqlServer(ssb)
