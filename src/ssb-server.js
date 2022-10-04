@@ -7,8 +7,39 @@ const waterfall = require('run-waterfall')
 const DB_PATH = join(__dirname, '../db')
 
 const pubs = [
+  // early hoomans
   {
-    name: 'cel',
+    id: '@hxGxqPrplLjRG2vtjQL87abX4QKqeLgCwQpS730nNwE=.ed25519',
+    name: 'paul'
+  },
+  {
+    id: '@6ilZq3kN0F+dXFHAPjAwMm87JEb/VdB+LC9eIMW3sa0=.ed25519',
+    name: 'dinoworm 🐛'
+  },
+  {
+    id: '@ye+QM09iPcDJD6YvQYjoQc7sLF/IFhmNbEqgdzQo3lQ=.ed25519',
+    name: 'mixmix'
+  },
+  {
+    id: '@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519',
+    name: 'cryptix'
+  },
+  {
+    id: '@f/6sQ6d2CMxRUhLpspgGIulDxDCwYD7DzFzPNr7u5AU=.ed25519',
+    name: 'cel'
+  },
+  {
+    id: '@FbGoHeEcePDG3Evemrc+hm+S77cXKf8BRQgkYinJggg=.ed25519',
+    name: 'Matt McKegg'
+  },
+  {
+    id: '@EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519',
+    name: 'Dominic'
+  },
+
+  // pubs
+  {
+    name: 'ssb..celehner.com',
     id: '@5XaVcAJ5DklwuuIkjGz4lwm2rOnMHHovhNg7BFFnyJ8=.ed25519'
   },
   {
