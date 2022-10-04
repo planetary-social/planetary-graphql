@@ -1,40 +1,14 @@
 const test = require('tape')
 const gql = require('graphql-tag')
-const { promisify: p } = require('util')
-const parallel = require('run-parallel')
 
 const TestBot = require('../test-bot')
 const { alice, bob, carol } = require('../lib/test-users')
 
-// TODO: move to lib or test-bot
-function setupUsers (ssb, cb) {
-  parallel(
-    [alice, bob, carol].map(user => (_cb) => {
-      ssb.db.create({
-        content: {
-          type: 'about',
-          about: user.id,
-          name: user.name,
-          publicWebHosting: user.publicWebHosting
-        },
-        keys: user.keys
-      }, _cb)
-    }),
-    (err) => {
-      if (err) cb(err)
-      else cb(null, null)
-    }
-  )
-}
-
-test('get-profile', async t => {
+test('getProfile', async t => {
   t.plan(6)
   const { apollo, ssb } = await TestBot()
 
-  await p(setupUsers)(ssb)
-
   // helpers
-
   const GET_PROFILE = gql`
     query getProfile ($id: ID!) {
       getProfile (id: $id) {
@@ -71,7 +45,8 @@ test('get-profile', async t => {
       id: carol.id,
       name: 'carol',
       image: null
-    }
+    },
+    'returns profile for carol who has publicWebHosting enabled'
   )
 
   ssb.close()

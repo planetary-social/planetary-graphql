@@ -4,6 +4,9 @@ const path = require('path')
 const rimraf = require('rimraf')
 const caps = require('ssb-caps')
 const { createTestClient } = require('apollo-server-integration-testing')
+const { promisify: p } = require('util')
+const parallel = require('run-parallel')
+const { alice, bob, carol } = require('./lib/test-users')
 
 const GraphqlServer = require('../src/graphql')
 
@@ -47,8 +50,31 @@ function SSB (opts = {}) {
   })
 }
 
+function initUsers (ssb, cb) {
+  parallel(
+    [alice, bob, carol].map(user => (_cb) => {
+      ssb.db.create({
+        content: {
+          type: 'about',
+          about: user.id,
+          name: user.name,
+          publicWebHosting: user.publicWebHosting
+        },
+        keys: user.keys
+      }, _cb)
+    }),
+    (err) => {
+      if (err) cb(err)
+      else cb(null, null)
+    }
+  )
+}
+
 module.exports = async function TestBot (opts = {}) {
   const ssb = SSB(opts)
+
+  // TODO: add to opts
+  await p(initUsers)(ssb)
 
   // apollo
   const ApolloServer = GraphqlServer(ssb)
