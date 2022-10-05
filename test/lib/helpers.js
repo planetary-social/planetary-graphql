@@ -45,10 +45,10 @@ query getProfile ($id: ID!) {
 }
 `
 
-function GetProfile (apollo, t) {
+function GetProfile (apollo, t, QUERY) {
   return async function getProfile (id) {
     const res = await apollo.query(
-      GET_PROFILE,
+      QUERY || GET_PROFILE,
       { variables: { id } }
     )
 

@@ -149,7 +149,7 @@ module.exports = function Resolvers (ssb) {
     const { threadMaxSize, limit = 10 } = opts
     return new Promise((resolve, reject) => {
       pull(
-        ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize }),
+        ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
         pull.take(limit),
         pull.collect((err, threads) => {
           if (err) return reject(err)
@@ -186,7 +186,7 @@ module.exports = function Resolvers (ssb) {
                 return cb(null, {
                   id: msg.key,
                   author: msg.value.author,
-                  text: (msg.value.content.text || ''),
+                  text: msg.value.content.text,
                   timestamp: msg.value.timestamp // asserted publish time
                 })
               }
