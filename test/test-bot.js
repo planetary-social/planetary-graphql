@@ -4,16 +4,13 @@ const path = require('path')
 const rimraf = require('rimraf')
 const caps = require('ssb-caps')
 const { createTestClient } = require('apollo-server-integration-testing')
-const { promisify: p } = require('util')
-const parallel = require('run-parallel')
-const { alice, bob, carol } = require('./lib/test-users')
 
 const GraphqlServer = require('../src/graphql')
 
 let count = 0
 
 // opts.path      (optional)
-//   opts.name    (optional) - convenience method for deterministic opts.path
+// opts.name    (optional) - convenience method for deterministic opts.path
 // opts.keys      (optional)
 // opts.rimraf    (optional) - clear the directory before start (default: true)
 
@@ -50,35 +47,12 @@ function SSB (opts = {}) {
   })
 }
 
-function initUsers (ssb, cb) {
-  parallel(
-    [alice, bob, carol].map(user => (_cb) => {
-      ssb.db.create({
-        content: {
-          type: 'about',
-          about: user.id,
-          name: user.name,
-          publicWebHosting: user.publicWebHosting
-        },
-        keys: user.keys
-      }, _cb)
-    }),
-    (err) => {
-      if (err) cb(err)
-      else cb(null, null)
-    }
-  )
-}
-
 module.exports = async function TestBot (opts = {}) {
   const ssb = SSB(opts)
 
-  // TODO: add to opts
-  await p(initUsers)(ssb)
-
   // apollo
   const ApolloServer = GraphqlServer(ssb)
-  const port = 3000 + Math.random() * 7000 | 0
+  const port = 3000 + count
   const apolloServer = await ApolloServer({ port })
   const apollo = createTestClient({ apolloServer })
 

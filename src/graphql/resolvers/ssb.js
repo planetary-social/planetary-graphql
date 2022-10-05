@@ -1,6 +1,6 @@
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
-const { where, type, descending, toPullStream, votesFor, contact } = require('ssb-db2/operators')
+const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('ssb-serve-blobs/id-to-url')
 
@@ -8,73 +8,69 @@ module.exports = function Resolvers (ssb) {
   const ssbPort = ssb.config.serveBlobs && ssb.config.serveBlobs.port
 
   /**
-   * Gets the profile (about) of the given profile id.
+   * Gets the profile (about) of the given feed id.
    * NOTE: only returns a profile for those who have
    * opted in to publicWebHosting
-   * @param {string} id - id of a profile
+   * @param {string} feedId - feedId of a user
    */
-  const getProfile = async (id) => {
-    const profile = await p(ssb.aboutSelf.get)(id)
+  const getProfile = async (feedId) => {
+    const profile = await p(ssb.aboutSelf.get)(feedId)
 
     if (!profile) return null
     if (profile.publicWebHosting !== true) return null
 
-    profile.id = id
+    profile.id = feedId
     return profile
   }
 
   /**
-   * Gets all the profile ids of followers of the given profile id
-   * @param {string} id - id of a profile
+   * Gets all the feed ids of followers of the given feed id
+   * @param {string} feedId - feedId of a user
    */
-  const getFollowersIds = (id) => {
+  const getFollowersIds = (feedId) => {
     return new Promise((resolve, reject) => {
-      pull(
-        ssb.db.query(
-          where(
-            contact(id)
-          ),
-          descending(), // latest => oldest
-          toPullStream()
-        ),
-        pull.filter(msg => msg.value.content.following),
-        pull.map(msg => msg.value.author),
-        pull.unique(),
-        pull.collect((err, res) => err ? reject(err) : resolve(res))
-      )
-    })
-  }
-
-  /**
-   * Gets all the profile ids of those following the given profile id
-   * @param {string} id - id of a profile
-   */
-  const getFollowingIds = (id) => {
-    return new Promise((resolve, reject) => {
-      ssb.friends.hops({ start: id, max: 1 }, (err, following) => {
+      ssb.friends.hops({ start: feedId, max: 1, reverse: true }, (err, followers) => {
         if (err) return reject(err)
+        else {
+          const followerIds = Object.entries(followers)
+            .filter(([_, status]) => status === 1)
+            .map(([id]) => id)
 
-        pull(
-          pull.values(Object.entries(following)),
-          pull.filter(([id, status]) => status === 1),
-          pull.map(([id]) => id),
-          pull.unique(),
-          pull.collect((err, res) => err ? reject(err) : resolve(res))
-        )
+          resolve(followerIds)
+        }
       })
     })
   }
 
   /**
-   * Gets all the profiles for a given array of profile ids
-   * @param {array} ids - array of profile ids
+   * Gets all the feed ids of those following the given feed id
+   * @param {string} feedId - feedId of a user
    */
-  const getProfilesForIds = (ids) => {
+  const getFollowingIds = (feedId) => {
+    return new Promise((resolve, reject) => {
+      ssb.friends.hops({ start: feedId, max: 1 }, (err, following) => {
+        if (err) return reject(err)
+        else {
+          const followingIds = Object.entries(following)
+            .filter(([id, status]) => status === 1)
+            .map(([id]) => id)
+
+          resolve(followingIds)
+        }
+      })
+    })
+  }
+
+  /**
+   * Gets all the profiles for a given array of feed ids
+   * @param {array} feedIds - array of feed ids
+   */
+  const getProfilesForIds = (feedIds) => {
     return new Promise((resolve, reject) => {
       pull(
-        pull.values(ids),
-        pullParaMap((id, cb) => {
-          getProfile(id)
+        pull.values(feedIds),
+        pullParaMap((feedId, cb) => {
+          getProfile(feedId)
             .then(profile => cb(null, profile))
             .catch(err => cb(err))
         }, 5),
@@ -99,12 +95,14 @@ module.exports = function Resolvers (ssb) {
         pull.filter(m => m.value.author === m.value.content.about),
         pull.map(m => m.value.author),
         pull.unique(),
-        pullParaMap((id, cb) => ssb.aboutSelf.get(id, (err, profile) => {
-          if (err) return cb(err)
-          profile.id = id
-          cb(null, profile)
-        }), 5),
-        pull.filter(profile => profile.publicWebHosting === true),
+        pullParaMap((feedId, cb) => {
+          getProfile(feedId)
+            .then(profile => cb(null, profile))
+            .catch(err => cb(err))
+        }, 5),
+        pull.filter(Boolean),
+        // TODO: This removes the profiles that came back as null, we might want to show something in place of that
+        // e.g. someone who hasnt opted in to publicWebHosting
         limit ? pull.take(limit) : null,
         pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
@@ -114,14 +112,14 @@ module.exports = function Resolvers (ssb) {
   /**
    * Gets all the votes on a message
    * TODO: doesnt handle unlikes and duplicates yet.
-   * @param {string} id - id of a message
+   * @param {string} msgId - id of a message
    */
-  const getVotes = (id) => {
+  const getVotes = (msgId) => {
     return new Promise((resolve, reject) => {
       pull(
         ssb.db.query(
           where(
-            votesFor(id)
+            votesFor(msgId)
           ),
           descending(), // latest => oldest
           toPullStream()
@@ -141,17 +139,17 @@ module.exports = function Resolvers (ssb) {
   }
 
   /**
-   * Gets all the threads initiated by a certain profile id
-   * @param {string} id - id of a profile
+   * Gets all the threads initiated by a certain feed id
+   * @param {string} feedId - feedId of a user
    * @param {object} opts - optional parameters
    * @param {int} [opts.limit=10] - max amount of threads to return
    * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
    */
-  const getThreads = (id, opts) => {
+  const getThreads = (feedId, opts) => {
     const { threadMaxSize, limit = 10 } = opts
     return new Promise((resolve, reject) => {
       pull(
-        ssb.threads.profile({ id, reverse: true, threadMaxSize }),
+        ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize }),
         pull.take(limit),
         pull.collect((err, threads) => {
           if (err) return reject(err)

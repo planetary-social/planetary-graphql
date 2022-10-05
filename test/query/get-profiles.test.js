@@ -1,16 +1,15 @@
 const test = require('tape')
 const gql = require('graphql-tag')
-const ssbKeys = require('ssb-keys')
-const { promisify: p } = require('util')
 
 const TestBot = require('../test-bot')
-const { carol } = require('../lib/test-users')
-
-const SORT = (a, b) => a.id - b.id
+const { CreateUser } = require('../lib/helpers')
 
 test('getProfiles', async t => {
   t.plan(7)
   const { apollo, ssb } = await TestBot()
+  const createUser = CreateUser(ssb)
+
+  const carol = await createUser('carol', true)
 
   // helpers
   const GET_PROFILES = gql`
@@ -34,64 +33,39 @@ test('getProfiles', async t => {
   t.error(res.errors, 'gets profiles without error')
 
   t.deepEqual(
-    res.data.getProfiles.sort(SORT),
+    res.data.getProfiles,
     [
       {
         id: carol.id,
         name: carol.name
       }
-    ].sort(SORT),
+    ],
     'returns only carol in getProfiles'
   )
 
-  // save another couple of people
-  const createProfile = (user) => {
-    return p(ssb.db.create)({
-      content: {
-        type: 'about',
-        about: user.id,
-        name: user.name,
-        publicWebHosting: user.publicWebHosting
-      },
-      keys: user.keys
-    })
-  }
-
-  const cherese = ssbKeys.generate()
-  await createProfile({
-    id: cherese.id,
-    name: 'cherese',
-    publicWebHosting: true,
-    keys: cherese
-  })
-
-  const mix = ssbKeys.generate()
-  await createProfile({
-    id: mix.id,
-    name: 'mix',
-    publicWebHosting: true,
-    keys: mix
-  })
+  // create some more users
+  const dan = await createUser('dan', true)
+  const mix = await createUser('mix', true)
 
   res = await getProfiles()
   t.error(res.errors, 'gets profiles without error')
 
   t.deepEqual(
-    res.data.getProfiles.sort(SORT),
+    res.data.getProfiles,
     [
       {
         id: mix.id,
-        name: 'mix'
+        name: mix.name
       },
       {
-        id: cherese.id,
-        name: 'cherese'
+        id: dan.id,
+        name: dan.name
       },
       {
         id: carol.id,
         name: carol.name
       }
-    ].sort(SORT),
+    ],
     'returns all the correct profiles'
   )
 
@@ -102,17 +76,17 @@ test('getProfiles', async t => {
   t.equals(res.data.getProfiles.length, 2, 'returns the correct amount of profiles when the limit is set')
 
   t.deepEqual(
-    res.data.getProfiles.sort(SORT),
+    res.data.getProfiles,
     [
       {
         id: mix.id,
         name: 'mix'
       },
       {
-        id: cherese.id,
-        name: 'cherese'
+        id: dan.id,
+        name: dan.name
       }
-    ].sort(SORT),
+    ],
     'returns the correct profiles when the limit is set'
   )
 
