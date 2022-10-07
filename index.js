@@ -1,7 +1,5 @@
 const graphqlServer = require('./src/graphql')
+const SSB = require('./src/ssb-server')
 
-if (process.env.NODE_ENV === 'test') {
-  module.exports = graphqlServer
-} else {
-  graphqlServer()
-}
+const ssb = SSB()
+graphqlServer(ssb)()

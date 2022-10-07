@@ -72,13 +72,16 @@ const pubs = [
 module.exports = function SSB (opts = {}) {
   const stack = SecretStack({ caps })
     .use([
+
       require('ssb-db2/core'),
+      require('ssb-db2/compat/publish'),
       require('ssb-classic'),
       // require('ssb-box'),
       // require('ssb-box2'),
       require('ssb-db2/compat/ebt'),
       // require('ssb-db2/compat/post'),
-      require('ssb-db2/compat/publish')
+      require('ssb-db2/compat/db')
+
       // require('ssb-db2/migrate'),
     ])
     .use(require('ssb-about-self'))

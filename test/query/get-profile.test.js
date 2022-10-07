@@ -1,56 +1,42 @@
 const test = require('tape')
-const gql = require('graphql-tag')
-const { createTestClient } = require('apollo-server-integration-testing')
 
-const GraphqlServer = require('../../')
+const TestBot = require('../test-bot')
+const { CreateUser, GetProfile } = require('../lib/helpers')
 
-test('get-profile', async t => {
-  t.plan(5)
-  const apolloServer = await GraphqlServer()
-  const client = createTestClient({ apolloServer })
+test('getProfile', async t => {
+  t.plan(6)
+  const { apollo, ssb } = await TestBot()
+  const createUser = CreateUser(ssb)
+  const getProfile = GetProfile(apollo, t)
 
-  const GET_PROFILE = gql`
-    query getProfile ($id: ID!) {
-      getProfile (id: $id) {
-        id
-        name
-        image
-      }
-    }
-  `
+  // init users
+  const alice = await createUser('alice') // publicWebHosting=undefined
+  const bob = await createUser('bob', { publicWebHosting: false }) // publicWebHosting=false
+  const carol = await createUser('carol', { publicWebHosting: true }) // publicWebHosting=true
 
-  function getProfile (id) {
-    return client.query(
-      GET_PROFILE,
-      { variables: { id } }
-    )
-  }
+  // get a user who has publicWebHosting=undefined
+  let profile = await getProfile(alice.id)
+  t.equal(profile, null, 'returns no profile for alice')
 
-  // publicWebHosting = true
-  const mixDesktopId = '@DIoOBMaI1f0mJg+5tUzZ7vgzCeeHh8+zGta4pOjc+k0=.ed25519'
+  // get a user who has publicWebHosting=false
+  profile = await getProfile(bob.id)
+  t.equal(profile, null, 'returns no profile for bob')
 
-  let res = await getProfile(mixDesktopId)
-
-  t.error(res.errors, 'no errors')
-  t.true(res.data.getProfile, 'returns a profile')
-
+  // get a user who has publicWebHosting=true
+  profile = await getProfile(carol.id)
   t.deepEqual(
-    res.data.getProfile,
+    profile,
     {
-      id: mixDesktopId,
-      name: 'mix.desktop',
-      image: 'http://localhost:26835/get/%26DxN64JjBNxEJUe2yjBpDW9eR9coxGhOQW6dYcU%2BK9%2FU%3D.sha256'
+      id: carol.id,
+      name: 'carol',
+      image: null,
+      following: [],
+      followingCount: 0,
+      followers: [],
+      followersCount: 0
     },
-    'returns correct profile details'
+    'returns profile for carol who has publicWebHosting enabled'
   )
 
-  // has publicWebHosting = undefined
-  // TODO: seems to not be returning anything for my profile
-  const chereseId = '@Z9Su0CwHlLBmS3W6CIva67B/9oiz24MVJCpMJ4lcDmE=.ed25519'
-
-  res = await getProfile(chereseId)
-  t.error(res.errors, 'no errors')
-  t.false(res.data.getProfile, 'doesnt return a profile')
-
-  apolloServer.stop()
+  ssb.close()
 })

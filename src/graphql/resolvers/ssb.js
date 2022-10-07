@@ -1,99 +1,83 @@
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
-const { where, type, descending, toPullStream, votesFor, contact } = require('ssb-db2/operators')
+const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('ssb-serve-blobs/id-to-url')
-const SSB = require('../../ssb-server')
 
-module.exports = function Resolvers () {
-  const ssb = SSB()
-
-  const ssbPort = ssb.config.serveBlobs && ssb.config.serveBlobs.port
+module.exports = function Resolvers (ssb) {
+  const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
 
   /**
-   * Gets the profile (about) of the given profile id.
+   * Gets the profile (about) of the given feed id.
    * NOTE: only returns a profile for those who have
    * opted in to publicWebHosting
-   * @param {string} id - id of a profile
+   * @param {string} feedId - feedId of a user
    */
-  const getProfile = async (id) => {
-    const profile = await p(ssb.aboutSelf.get)(id)
+  const getProfile = async (feedId) => {
+    const profile = await p(ssb.aboutSelf.get)(feedId)
 
     if (!profile) return null
     if (profile.publicWebHosting !== true) return null
 
-    profile.id = id
+    profile.id = feedId
     return profile
   }
 
   /**
-   * Gets all the profile ids of followers of the given profile id
-   * @param {string} id - id of a profile
+   * Gets all the feed ids of followers of the given feed id
+   * @param {string} feedId - feedId of a user
    */
-  const getFollowersIds = (id) => {
+  const getFollowersIds = (feedId) => {
     return new Promise((resolve, reject) => {
-      pull(
-        ssb.db.query(
-          where(
-            contact(id)
-          ),
-          descending(), // latest => oldest
-          toPullStream()
-        ),
-        pull.filter(msg => msg.value.content.following),
-        pull.map(msg => msg.value.author),
-        pull.unique(),
-        pull.collect((err, followersIds) => {
-          if (err) reject(err)
-          else resolve(followersIds)
-        })
-      )
-    })
-  }
-
-  /**
-   * Gets all the profile ids of those following the given profile id
-   * @param {string} id - id of a profile
-   */
-  const getFollowingIds = (id) => {
-    return new Promise((resolve, reject) => {
-      ssb.friends.hops({ start: id, max: 1 }, (err, following) => {
+      ssb.friends.hops({ start: feedId, max: 1, reverse: true }, (err, followers) => {
         if (err) return reject(err)
+        else {
+          const followerIds = Object.entries(followers)
+            .filter(([_, status]) => status === 1)
+            .map(([id]) => id)
 
-        pull(
-          pull.values(Object.entries(following)),
-          pull.filter(([id, status]) => status === 1),
-          pull.map(([id]) => id),
-          pull.unique(),
-          pull.collect((err, followingIds) => {
-            if (err) reject(err)
-            else resolve(followingIds)
-          })
-        )
+          resolve(followerIds)
+        }
       })
     })
   }
 
   /**
-   * Gets all the profiles for a given array of profile ids
-   * @param {array} ids - array of profile ids
+   * Gets all the feed ids of those following the given feed id
+   * @param {string} feedId - feedId of a user
    */
-  const getProfilesForIds = (ids) => {
+  const getFollowingIds = (feedId) => {
+    return new Promise((resolve, reject) => {
+      ssb.friends.hops({ start: feedId, max: 1 }, (err, following) => {
+        if (err) return reject(err)
+        else {
+          const followingIds = Object.entries(following)
+            .filter(([id, status]) => status === 1)
+            .map(([id]) => id)
+
+          resolve(followingIds)
+        }
+      })
+    })
+  }
+
+  /**
+   * Gets all the profiles for a given array of feed ids
+   * @param {array} feedIds - array of feed ids
+   */
+  const getProfilesForIds = (feedIds) => {
     return new Promise((resolve, reject) => {
       pull(
-        pull.values(ids),
-        pullParaMap((id, cb) => {
-          getProfile(id)
+        pull.values(feedIds),
+        pullParaMap((feedId, cb) => {
+          getProfile(feedId)
             .then(profile => cb(null, profile))
             .catch(err => cb(err))
         }, 5),
         pull.filter(Boolean),
         // TODO: This removes the profiles that came back as null, we might want to show something in place of that
         // e.g. someone who hasnt opted in to publicWebHosting
-        pull.collect((err, profiles) => {
-          if (err) reject(err)
-          else resolve(profiles)
-        })
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
     })
   }
@@ -111,12 +95,14 @@ module.exports = function Resolvers () {
         pull.filter(m => m.value.author === m.value.content.about),
         pull.map(m => m.value.author),
         pull.unique(),
-        pullParaMap((id, cb) => ssb.aboutSelf.get(id, (err, profile) => {
-          if (err) return cb(err)
-          profile.id = id
-          cb(null, profile)
-        }), 5),
-        pull.filter(profile => profile.publicWebHosting === true),
+        pullParaMap((feedId, cb) => {
+          getProfile(feedId)
+            .then(profile => cb(null, profile))
+            .catch(err => cb(err))
+        }, 5),
+        pull.filter(Boolean),
+        // TODO: This removes the profiles that came back as null, we might want to show something in place of that
+        // e.g. someone who hasnt opted in to publicWebHosting
         limit ? pull.take(limit) : null,
         pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
@@ -126,14 +112,14 @@ module.exports = function Resolvers () {
   /**
    * Gets all the votes on a message
    * TODO: doesnt handle unlikes and duplicates yet.
-   * @param {string} id - id of a message
+   * @param {string} msgId - id of a message
    */
-  const getVotes = (id) => {
+  const getVotes = (msgId) => {
     return new Promise((resolve, reject) => {
       pull(
         ssb.db.query(
           where(
-            votesFor(id)
+            votesFor(msgId)
           ),
           descending(), // latest => oldest
           toPullStream()
@@ -147,26 +133,23 @@ module.exports = function Resolvers () {
             expression: vote?.expression
           }
         }),
-        pull.collect((err, votes) => {
-          if (err) reject(err)
-          else resolve(votes)
-        })
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
     })
   }
 
   /**
-   * Gets all the threads initiated by a certain profile id 
-   * @param {string} id - id of a profile
+   * Gets all the threads initiated by a certain feed id
+   * @param {string} feedId - feedId of a user
    * @param {object} opts - optional parameters
    * @param {int} [opts.limit=10] - max amount of threads to return
    * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
    */
-  const getThreads = (id, opts) => {
+  const getThreads = (feedId, opts) => {
     const { threadMaxSize, limit = 10 } = opts
     return new Promise((resolve, reject) => {
       pull(
-        ssb.threads.profile({ id, reverse: true, threadMaxSize }),
+        ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
         pull.take(limit),
         pull.collect((err, threads) => {
           if (err) return reject(err)
@@ -203,7 +186,7 @@ module.exports = function Resolvers () {
                 return cb(null, {
                   id: msg.key,
                   author: msg.value.author,
-                  text: (msg.value.content.text || ''),
+                  text: msg.value.content.text,
                   timestamp: msg.value.timestamp // asserted publish time
                 })
               }
@@ -219,62 +202,59 @@ module.exports = function Resolvers () {
             })
             .catch(err => cb(err))
         }, 5),
-        pull.collect((err, messages) => {
-          if (err) reject(err)
-          else resolve(messages)
-        })
+        pull.collect((err, res) => err ? reject(err) : resolve(res))
       )
     })
   }
 
   return {
-    ssb,
-    resolvers: {
-      Query: {
-        getProfile: (_, opts) => getProfile(opts.id),
-        getProfiles: (_, opts) => getProfiles(opts)
+    Query: {
+      getProfile: (_, opts) => getProfile(opts.id),
+      getProfiles: (_, opts) => getProfiles(opts)
+    },
+
+    Profile: {
+      image: (parent) => {
+        if (!parent.image) return
+        return toSSBUri(parent.image, { port: BLOB_PORT })
       },
-
-      Profile: {
-        image: (parent) => toSSBUri(parent.image, { port: ssbPort }),
-        threads: (parent, opts) => getThreads(parent.id, opts),
-        followers: async (parent) => {
-          const ids = await getFollowersIds(parent.id)
-          return getProfilesForIds(ids)
-        },
-        followersCount: async (parent) => {
-          const ids = await getFollowersIds(parent.id)
-          return ids?.length
-        },
-        following: async (parent) => {
-          const ids = await getFollowingIds(parent.id)
-          return getProfilesForIds(ids)
-        },
-        followingCount: async (parent) => {
-          const ids = await getFollowingIds(parent.id)
-          return ids?.length
-        }
+      threads: (parent, opts) => getThreads(parent.id, opts),
+      followers: async (parent) => {
+        const ids = await getFollowersIds(parent.id)
+        return getProfilesForIds(ids)
       },
-
-      Thread: {
-        messages: (parent) => mapMessages(parent.messages)
+      followersCount: async (parent) => {
+        const ids = await getFollowersIds(parent.id)
+        return ids?.length
       },
-
-      Comment: {
-        author: (parent) => getProfile(parent.author),
-        replies: (parent) => {
-        },
-
-        votes: (parent) => getVotes(parent.id),
-        votesCount: async (parent) => {
-          const votes = await getVotes(parent.id)
-          return votes?.length
-        }
+      following: async (parent) => {
+        const ids = await getFollowingIds(parent.id)
+        return getProfilesForIds(ids)
       },
-
-      Vote: {
-        author: (parent) => getProfile(parent.author)
+      followingCount: async (parent) => {
+        const ids = await getFollowingIds(parent.id)
+        return ids?.length
       }
+    },
+
+    Thread: {
+      messages: (parent) => mapMessages(parent.messages)
+    },
+
+    Comment: {
+      author: (parent) => getProfile(parent.author),
+      replies: (parent) => {
+      },
+
+      votes: (parent) => getVotes(parent.id),
+      votesCount: async (parent) => {
+        const votes = await getVotes(parent.id)
+        return votes?.length
+      }
+    },
+
+    Vote: {
+      author: (parent) => getProfile(parent.author)
     }
   }
 }
