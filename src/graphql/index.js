@@ -5,6 +5,7 @@ const {
 } = require('apollo-server-core')
 
 const http = require('http')
+const cors = require('cors')
 const express = require('express')
 const { promisify } = require('util')
 
@@ -16,6 +17,7 @@ module.exports = function GraphqlServer (ssb) {
     if (cb === undefined) return promisify(graphqlServer)(opts)
 
     const app = express()
+    app.use(cors())
     const httpServer = http.createServer(app)
     const resolvers = SSBResolvers(ssb)
 
