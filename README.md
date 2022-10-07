@@ -1,7 +1,11 @@
 # planetary-pub2
 
+## Run locally
 
-
+```bash
+npm install
+npm start
+```
 
 ## Deploy
 
