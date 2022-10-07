@@ -26,7 +26,7 @@ function SSB (opts = {}) {
       require('ssb-classic'),
       // require('ssb-box'),
       // require('ssb-box2'),
-      require('ssb-db2/compat/ebt'),
+      // require('ssb-db2/compat/ebt'),
       // require('ssb-db2/compat/post'),
       require('ssb-db2/compat/publish')
       // require('ssb-db2/migrate'),
@@ -35,9 +35,9 @@ function SSB (opts = {}) {
     .use(require('ssb-threads'))
 
     .use(require('ssb-friends'))
-    .use(require('ssb-ebt'))
-    .use(require('ssb-conn'))
-    .use(require('ssb-replication-scheduler'))
+    // .use(require('ssb-ebt'))
+    // .use(require('ssb-conn'))
+    // .use(require('ssb-replication-scheduler'))
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
 

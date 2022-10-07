@@ -23,16 +23,7 @@ module.exports = function GraphqlServer (ssb) {
       typeDefs,
       resolvers,
       plugins: [
-        ApolloServerPluginLandingPageGraphQLPlayground({ httpServer }),
-        {
-          async serverWillStart () {
-            return {
-              async serverWillStop () {
-                ssb.close()
-              }
-            }
-          }
-        }
+        ApolloServerPluginLandingPageGraphQLPlayground({ httpServer })
       ]
     })
 

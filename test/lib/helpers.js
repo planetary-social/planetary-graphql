@@ -3,14 +3,14 @@ const { promisify: p } = require('util')
 const gql = require('graphql-tag')
 
 function CreateUser (ssb) {
-  return async function createUser (name, publicWebHosting) {
+  return async function createUser (name, aboutOpts = {}) {
     const keys = ssbKeys.generate()
 
     const content = {
       type: 'about',
       about: keys.id,
       name,
-      publicWebHosting
+      ...aboutOpts
     }
 
     // publish the users about message
@@ -19,7 +19,7 @@ function CreateUser (ssb) {
     return {
       id: keys.id,
       name,
-      publicWebHosting,
+      ...aboutOpts,
       keys
     }
   }

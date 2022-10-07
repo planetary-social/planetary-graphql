@@ -11,16 +11,16 @@ test('getProfile', async t => {
 
   // init users
   const alice = await createUser('alice') // publicWebHosting=undefined
-  const bob = await createUser('bob', false) // publicWebHosting=false
-  const carol = await createUser('carol', true) // publicWebHosting=true
+  const bob = await createUser('bob', { publicWebHosting: false }) // publicWebHosting=false
+  const carol = await createUser('carol', { publicWebHosting: true }) // publicWebHosting=true
 
   // get a user who has publicWebHosting=undefined
   let profile = await getProfile(alice.id)
-  t.false(profile, 'returns no profile for alice')
+  t.equal(profile, null, 'returns no profile for alice')
 
   // get a user who has publicWebHosting=false
   profile = await getProfile(bob.id)
-  t.false(profile, 'returns no profile for bob')
+  t.equal(profile, null, 'returns no profile for bob')
 
   // get a user who has publicWebHosting=true
   profile = await getProfile(carol.id)

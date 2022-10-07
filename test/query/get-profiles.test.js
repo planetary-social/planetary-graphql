@@ -9,7 +9,7 @@ test('getProfiles', async t => {
   const { apollo, ssb } = await TestBot()
   const createUser = CreateUser(ssb)
 
-  const carol = await createUser('carol', true)
+  const carol = await createUser('carol', { publicWebHosting: true })
 
   // helpers
   const GET_PROFILES = gql`
@@ -44,8 +44,8 @@ test('getProfiles', async t => {
   )
 
   // create some more users
-  const dan = await createUser('dan', true)
-  const mix = await createUser('mix', true)
+  const dan = await createUser('dan', { publicWebHosting: true })
+  const mix = await createUser('mix', { publicWebHosting: true })
 
   res = await getProfiles()
   t.error(res.errors, 'gets profiles without error')

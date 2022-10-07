@@ -11,7 +11,7 @@ test('following', async t => {
   const getProfile = GetProfile(apollo, t)
 
   // init users
-  const alice = await createUser('alice', true)
+  const alice = await createUser('alice', { publicWebHosting: true })
   let profile = await getProfile(alice.id)
 
   t.deepEqual(
@@ -30,7 +30,7 @@ test('following', async t => {
   )
 
   // a new user named bob (publicWebHosting=true)
-  const bob = await createUser('bob', true)
+  const bob = await createUser('bob', { publicWebHosting: true })
 
   // alice follows bob
   await p(ssb.db.create)({
@@ -59,7 +59,7 @@ test('following', async t => {
   )
 
   // a new user named carol (publicWebHosting=false)
-  const carol = await createUser('carol', false)
+  const carol = await createUser('carol', { publicWebHosting: false })
 
   // alice follows carol
   await p(ssb.db.create)({

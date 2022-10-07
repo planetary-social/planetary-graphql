@@ -5,7 +5,7 @@ const { promisify: p } = require('util')
 const toSSBUri = require('ssb-serve-blobs/id-to-url')
 
 module.exports = function Resolvers (ssb) {
-  const ssbPort = ssb.config.serveBlobs && ssb.config.serveBlobs.port
+  const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
 
   /**
    * Gets the profile (about) of the given feed id.
@@ -216,7 +216,7 @@ module.exports = function Resolvers (ssb) {
     Profile: {
       image: (parent) => {
         if (!parent.image) return
-        return toSSBUri(parent.image, { port: ssbPort })
+        return toSSBUri(parent.image, { port: BLOB_PORT })
       },
       threads: (parent, opts) => getThreads(parent.id, opts),
       followers: async (parent) => {

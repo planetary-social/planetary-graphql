@@ -34,9 +34,9 @@ test('threads', async t => {
   const getProfile = GetProfile(apollo, t, GET_PROFILE)
 
   // setup some test users
-  const alice = await createUser('alice', true)
-  const bob = await createUser('bob', true)
-  const carol = await createUser('carol', false) // publicWebHosting=false
+  const alice = await createUser('alice', { publicWebHosting: true })
+  const bob = await createUser('bob', { publicWebHosting: true })
+  const carol = await createUser('carol', { publicWebHosting: false }) // publicWebHosting=false
 
   async function postMessage (content = {}, user) {
     const res = await p(ssb.db.create)({
