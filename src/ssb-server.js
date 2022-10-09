@@ -91,6 +91,7 @@ module.exports = function SSB (opts = {}) {
     .use(require('ssb-ebt'))
     .use(require('ssb-conn'))
     .use(require('ssb-replication-scheduler'))
+    .use(require('ssb-lan'))
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
 
@@ -98,6 +99,7 @@ module.exports = function SSB (opts = {}) {
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),
     path: DB_PATH,
     friends: { hops: 6 },
+    // lan: { legacy: false },
     ...opts
   })
 
@@ -116,6 +118,7 @@ module.exports = function SSB (opts = {}) {
           }
         ],
         (err, connection) => {
+	  console.log(connection)
           if (err) console.error(err)
         }
       )
