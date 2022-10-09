@@ -3,6 +3,7 @@ const caps = require('ssb-caps')
 const ssbKeys = require('ssb-keys')
 const { join } = require('path')
 const waterfall = require('run-waterfall')
+const pull = require('pull-stream')
 
 const DB_PATH = join(__dirname, '../db')
 
@@ -52,16 +53,16 @@ const pubs = [
     host: 'net:one.planetary.pub:8008~shs:@CIlwTOK+m6v1hT2zUVOCJvvZq7KE/65ErN6yA2yrURY='
   },
   {
-    host: 'net:two.planetary.pub:8008:@7jJ7oou5pKKuyKvIlI5tl3ncjEXmZcbm3TvKqQetJIo='
-    // invite: 'two.planetary.pub:8008:@7jJ7oou5pKKuyKvIlI5tl3ncjEXmZcbm3TvKqQetJIo=.ed25519~8pETEamsgecH32ry4bj7sr7ofXtUbeOCG1qq4C7szHY='
+    host: 'net:two.planetary.pub:8008:@7jJ7oou5pKKuyKvIlI5tl3ncjEXmZcbm3TvKqQetJIo=',
+    invite: 'two.planetary.pub:8008:@7jJ7oou5pKKuyKvIlI5tl3ncjEXmZcbm3TvKqQetJIo=.ed25519~8pETEamsgecH32ry4bj7sr7ofXtUbeOCG1qq4C7szHY='
   },
   {
-    host: 'net:159.89.164.120:8008:@LQ8HBiEinU5FiXGaZH9JYFGBGdsB99mepBdh/Smq3VI='
-    // invite: '159.89.164.120:8008:@LQ8HBiEinU5FiXGaZH9JYFGBGdsB99mepBdh/Smq3VI=.ed25519~lZItxcdycINquFD1SoeCYtUrLBVlc1zZmz2UAln6TOE=te'
+    host: 'net:159.89.164.120:8008:@LQ8HBiEinU5FiXGaZH9JYFGBGdsB99mepBdh/Smq3VI=',
+    invite: '159.89.164.120:8008:@LQ8HBiEinU5FiXGaZH9JYFGBGdsB99mepBdh/Smq3VI=.ed25519~lZItxcdycINquFD1SoeCYtUrLBVlc1zZmz2UAln6TOE=te'
   },
   {
-    host: 'net:four.planetary.pub:8008:@5KDK98cjIQ8bPoBkvp7bCwBXoQMlWpdIbCFyXER8Lbw='
-    // invite: 'four.planetary.pub:8008:@5KDK98cjIQ8bPoBkvp7bCwBXoQMlWpdIbCFyXER8Lbw=.ed25519~e9ZRXEw0RSTE6FX8jOwWV7yfMRDsAZkzlhCRbVMBUEc='
+    host: 'net:four.planetary.pub:8008:@5KDK98cjIQ8bPoBkvp7bCwBXoQMlWpdIbCFyXER8Lbw=',
+    invite: 'four.planetary.pub:8008:@5KDK98cjIQ8bPoBkvp7bCwBXoQMlWpdIbCFyXER8Lbw=.ed25519~e9ZRXEw0RSTE6FX8jOwWV7yfMRDsAZkzlhCRbVMBUEc='
   },
   {
     host: 'net:gossip.noisebridge.info:8008:@2NANnQVdsoqk0XPiJG2oMZqaEpTeoGrxOHJkLIqs7eY='
@@ -88,10 +89,10 @@ module.exports = function SSB (opts = {}) {
     .use(require('ssb-threads'))
 
     .use(require('ssb-friends'))
-    .use(require('ssb-ebt'))
-    .use(require('ssb-conn'))
-    .use(require('ssb-replication-scheduler'))
     .use(require('ssb-lan'))
+    .use(require('ssb-conn'))
+    .use(require('ssb-ebt'))
+    .use(require('ssb-replication-scheduler'))
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
 
@@ -101,6 +102,20 @@ module.exports = function SSB (opts = {}) {
     friends: { hops: 6 },
     // lan: { legacy: false },
     ...opts
+  })
+
+  ssb.lan.start()
+  pull(
+    ssb.conn.peers(),
+    pull.map(update => update.map(ev => [ev[1].key, ev[1].state])),
+    pull.log()
+  )
+  ssb.db.onMsgAdded(m => {
+    if (m.kvt.value.author !== ssb.id) return
+    console.log(
+	    m.kvt.value.sequence,
+	    JSON.stringify(m.kvt.value.content, null, 2)
+    )
   })
 
   pubs.forEach(({ name, id, host, invite }) => {
@@ -113,12 +128,16 @@ module.exports = function SSB (opts = {}) {
             else ssb.friends.follow(id, { state: true }, cb)
           },
           (data, cb) => {
+            if (invite) ssb.invite.use(invite, cb)
+	    else cb(null, null)
+	  },
+          (data, cb) => {
             if (host) ssb.conn.connect(host, cb)
             else cb(null)
           }
         ],
         (err, connection) => {
-          if (err) console.error(err)
+          // if (err) console.error(err)
         }
       )
     }
