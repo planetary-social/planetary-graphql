@@ -118,7 +118,6 @@ module.exports = function SSB (opts = {}) {
           }
         ],
         (err, connection) => {
-	  console.log(connection)
           if (err) console.error(err)
         }
       )
