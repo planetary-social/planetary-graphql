@@ -31,6 +31,7 @@
     "pull-paramap": "^1.2.2",
     "pull-stream": "^3.6.14",
     "run-waterfall": "^1.1.7",
+    "secret-stack": "^6.4.1",
     "ssb-about-self": "^1.1.0",
     "ssb-blobs": "^2.0.1",
     "ssb-caps": "^1.1.0",
