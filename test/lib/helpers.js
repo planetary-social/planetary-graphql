@@ -53,6 +53,7 @@ function GetProfile (apollo, t, QUERY) {
     )
 
     t.error(res.errors, `gets profile ${id} without error`)
+    if (res.errors) console.log(res.errors)
 
     return res.data.getProfile
   }

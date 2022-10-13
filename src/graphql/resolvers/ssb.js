@@ -2,7 +2,7 @@ const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
-const toSSBUri = require('ssb-serve-blobs/id-to-url')
+const toSSBUri = require('../../lib/to-ssb-uri')
 
 module.exports = function Resolvers (ssb) {
   const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
