@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "dev": "NODE_ENV=development node index.js",
     "test": "npm run test:raw && npm run lint",
     "test:raw": "NODE_ENV=test tape test/**/*.test.js | tap-arc",
     "sync": "node src/ssb-sync.js",
