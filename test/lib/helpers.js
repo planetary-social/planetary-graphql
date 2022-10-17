@@ -25,6 +25,20 @@ function CreateUser (ssb) {
   }
 }
 
+function PostMessage (ssb) {
+  return async function postMessage (content = {}, user) {
+    const res = await p(ssb.db.create)({
+      content: {
+        type: 'post',
+        ...content
+      },
+      keys: user.keys
+    })
+
+    return res.key
+  }
+}
+
 const GET_PROFILE = gql`
 query getProfile ($id: ID!) {
   getProfile (id: $id) {
@@ -61,5 +75,6 @@ function GetProfile (apollo, t, QUERY) {
 
 module.exports = {
   CreateUser,
-  GetProfile
+  GetProfile,
+  PostMessage
 }

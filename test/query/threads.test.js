@@ -16,15 +16,12 @@ test('threads', async t => {
         id
         threads {
           id
-          messages {
+          messages {              
             id
             text
             author {
               id
             }
-            # votes: [Vote]
-            # votesCount: Int
-            # replies: [Comment]
           }
         }
       }
