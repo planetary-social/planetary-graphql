@@ -146,11 +146,11 @@ module.exports = function Resolvers (ssb) {
    * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
    */
   const getThreads = (feedId, opts) => {
-    const { threadMaxSize, limit = 10 } = opts
+    const { threadMaxSize } = opts
+
     return new Promise((resolve, reject) => {
       pull(
         ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
-        pull.take(limit),
         pull.collect((err, threads) => {
           if (err) return reject(err)
 
@@ -218,7 +218,11 @@ module.exports = function Resolvers (ssb) {
         if (!parent.image) return
         return toSSBUri(parent.image, { port: BLOB_PORT })
       },
-      threads: (parent, opts) => getThreads(parent.id, opts),
+      feed: async (parent, opts) => ({ threads: await getThreads(parent.id, opts), opts }), // pass threads and opts to type Feed resolvers
+
+      // TODO: change these to use same format as feed, where it passes
+      // data down to child resolvers. This is faster than doing two calls
+      // then we can also pass down a limit to the followers profile loading as well
       followers: async (parent) => {
         const ids = await getFollowersIds(parent.id)
         return getProfilesForIds(ids)
@@ -235,6 +239,24 @@ module.exports = function Resolvers (ssb) {
         const ids = await getFollowingIds(parent.id)
         return ids?.length
       }
+    },
+
+    Feed: {
+      threads: ({ threads, opts }) => {
+        const { limit = 10, after } = opts
+        const startIndex = after
+          ? threads.findIndex(({ messages }) => {
+            const key = messages[0].key
+
+            return after === key
+          }) + 1
+          : 0
+
+        return threads.slice(startIndex, startIndex + limit)
+      },
+      threadsCount: ({ threads }) => threads.length
+
+      // TODO: page information
     },
 
     Thread: {

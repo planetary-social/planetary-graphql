@@ -113,8 +113,8 @@ module.exports = function SSB (opts = {}) {
   ssb.db.onMsgAdded(m => {
     if (m.kvt.value.author !== ssb.id) return
     console.log(
-	    m.kvt.value.sequence,
-	    JSON.stringify(m.kvt.value.content, null, 2)
+      m.kvt.value.sequence,
+      JSON.stringify(m.kvt.value.content, null, 2)
     )
   })
 
@@ -129,15 +129,15 @@ module.exports = function SSB (opts = {}) {
           },
           (data, cb) => {
             if (invite) ssb.invite.use(invite, cb)
-	    else cb(null, null)
-	  },
+            else cb(null, null)
+          },
           (data, cb) => {
             if (host) ssb.conn.connect(host, cb)
             else cb(null)
           }
         ],
         (err, connection) => {
-          // if (err) console.error(err)
+          if (err) console.error(err)
         }
       )
     }
