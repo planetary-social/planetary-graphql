@@ -14,13 +14,15 @@ test('threads', async t => {
     query getProfile ($id: ID!) {
       getProfile (id: $id) {
         id
-        threads {
-          id
-          messages {              
+        feed {
+          threads {
             id
-            text
-            author {
+            messages {              
               id
+              text
+              author {
+                id
+              }
             }
           }
         }
@@ -71,29 +73,31 @@ test('threads', async t => {
     profile,
     {
       id: alice.id,
-      threads: [
-        {
-          id: msgId,
-          messages: [
-            {
-              id: msgId,
-              author: { id: alice.id },
-              text: 'Say hi!'
-            },
-            {
-              id: msgId2,
-              author: { id: bob.id },
-              text: 'Kia ora!'
-            },
-            { // publicWebHosting for this author is false
-              // meaning it returns an empty message instead
-              id: null,
-              author: null,
-              text: null
-            }
-          ]
-        }
-      ]
+      feed: {
+        threads: [
+          {
+            id: msgId,
+            messages: [
+              {
+                id: msgId,
+                author: { id: alice.id },
+                text: 'Say hi!'
+              },
+              {
+                id: msgId2,
+                author: { id: bob.id },
+                text: 'Kia ora!'
+              },
+              { // publicWebHosting for this author is false
+                // meaning it returns an empty message instead
+                id: null,
+                author: null,
+                text: null
+              }
+            ]
+          }
+        ]
+      }
     },
     'returns the correct threads in the message'
   )

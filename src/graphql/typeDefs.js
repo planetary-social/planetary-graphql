@@ -8,15 +8,21 @@ module.exports = gql`
     description: String
     # publicWebHosting
 
-    threads(limit: Int, threadMaxSize: Int): [Thread]
-    # threads (started: Boolean): [Thread]
-    # threadCount: Int
+    feed(limit: Int, threadMaxSize: Int, after: String): Feed
     
     followers: [Profile]
     followersCount: Int
     
     following: [Profile]
     followingCount: Int
+  }
+
+  type Feed {
+    threads: [Thread]
+    threadsCount: Int # NOTE: this isnt just threads started by you, we could add another resolver here for that
+
+    # TODO:
+    # pageInfo
   }
 
   type Thread {
