@@ -1,6 +1,6 @@
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
-const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
+const { where, type, descending, toPullStream, votesFor, toCallback } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('../../lib/to-ssb-uri')
 
@@ -207,10 +207,36 @@ module.exports = function Resolvers (ssb) {
     })
   }
 
+  const getRoomAliases = () => {
+    return new Promise((resolve, reject) => {
+      pull(
+        ssb.db.query(
+          where(
+            type('room/alias')
+          ),
+          descending(), // latest => oldest
+          toPullStream()
+        ),
+        pull.map(m => {
+          return {
+            id: m.key,
+            ...m.value.content, // { action, alias, room, aliasURL }
+            author: m.value.author
+          }
+        }),
+        pull.collect((err, res) => {
+          if (err) reject(err)
+          else resolve(res)
+        })
+      )
+    })
+  }
+
   return {
     Query: {
       getProfile: (_, opts) => getProfile(opts.id),
-      getProfiles: (_, opts) => getProfiles(opts)
+      getProfiles: (_, opts) => getProfiles(opts),
+      getRoomAliases: () => getRoomAliases()
     },
 
     Profile: {
@@ -254,6 +280,9 @@ module.exports = function Resolvers (ssb) {
     },
 
     Vote: {
+      author: (parent) => getProfile(parent.author)
+    },
+    RoomAlias: {
       author: (parent) => getProfile(parent.author)
     }
   }

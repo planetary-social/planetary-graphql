@@ -35,6 +35,15 @@ module.exports = gql`
     replies: [Comment]
   }
 
+  type RoomAlias {
+    id: ID
+    author: Profile
+    action: String
+    alias: String
+    room: String
+    aliasURL: String
+  }
+
 
   type Vote {
     author: Profile
@@ -51,6 +60,8 @@ module.exports = gql`
 
     """
     getProfiles(limit: Int): [Profile]
+    
+    getRoomAliases: [RoomAlias]
 
     # getThread(id: ID!, preview: Boolean): Thread
     # getSample(limit: Int): [Thread]
