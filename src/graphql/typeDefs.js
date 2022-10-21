@@ -42,6 +42,7 @@ module.exports = gql`
     alias: String
     room: String
     aliasURL: String
+    signature: String
   }
 
 
@@ -61,7 +62,7 @@ module.exports = gql`
     """
     getProfiles(limit: Int): [Profile]
     
-    getRoomAliases: [RoomAlias]
+    getRoomByAlias(alias: String!): RoomAlias
 
     # getThread(id: ID!, preview: Boolean): Thread
     # getSample(limit: Int): [Thread]
