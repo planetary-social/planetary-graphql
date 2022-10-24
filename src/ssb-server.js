@@ -57,8 +57,21 @@ module.exports = function SSB (opts = {}) {
   pull(
     ssb.conn.peers(),
     flatMap(evs => evs),
-    pull.map(ev => [ev[1].key, ev[1].state].join(' - ')),
-    pull.log()
+    pull.asyncMap((ev, cb) => {
+      const feedId = ev[1].key
+      ssb.aboutSelf.get(feedId, (err, details) => {
+        cb(null, {
+          state: ev[1].state,
+          name: err ? feedId : (details.name || feedId)
+        })
+      })
+    }),
+    pull.drain(({ state, name }) => {
+      const output = `${state.padStart(13, ' ')} - ${name}`
+      state === 'connected'
+        ? console.log(green(output))
+        : console.log(output)
+    })
   )
 
   peers.forEach(({ name, id, host, invite }) => {
@@ -110,4 +123,8 @@ module.exports = function SSB (opts = {}) {
   )
 
   return ssb
+}
+
+function green (string) {
+  return '\x1b[32m' + string + '\x1b[0m'
 }
