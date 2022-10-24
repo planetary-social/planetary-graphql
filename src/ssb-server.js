@@ -4,6 +4,7 @@ const ssbKeys = require('ssb-keys')
 const { join } = require('path')
 const waterfall = require('run-waterfall')
 const pull = require('pull-stream')
+const flatMap = require('pull-flatmap')
 
 const peers = require('./peers')
 const DB_PATH = join(__dirname, '../db')
@@ -55,16 +56,10 @@ module.exports = function SSB (opts = {}) {
   ssb.lan.start()
   pull(
     ssb.conn.peers(),
-    pull.map(update => update.map(ev => [ev[1].key, ev[1].state])),
+    flatMap(evs => evs),
+    pull.map(ev => [ev[1].key, ev[1].state].join(' - ')),
     pull.log()
   )
-  ssb.db.onMsgAdded(m => {
-    if (m.kvt.value.author !== ssb.id) return
-    console.log(
-	    m.kvt.value.sequence,
-	    JSON.stringify(m.kvt.value.content, null, 2)
-    )
-  })
 
   peers.forEach(({ name, id, host, invite }) => {
     if (id) {
@@ -77,8 +72,8 @@ module.exports = function SSB (opts = {}) {
           },
           (data, cb) => {
             if (invite) ssb.invite.use(invite, cb)
-	    else cb(null, null)
-	  },
+            else cb(null, null)
+          },
           (data, cb) => {
             if (host) ssb.conn.connect(host, cb)
             else cb(null)
