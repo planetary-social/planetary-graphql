@@ -4,6 +4,7 @@ const ssbKeys = require('ssb-keys')
 const { join } = require('path')
 const waterfall = require('run-waterfall')
 const pull = require('pull-stream')
+const flatMap = require('pull-flatmap')
 
 const peers = require('./peers')
 const DB_PATH = join(__dirname, '../db')
@@ -28,8 +29,19 @@ module.exports = function SSB (opts = {}) {
 
     .use(require('ssb-friends'))
     .use(require('ssb-lan'))
-    .use(require('ssb-conn'))
     .use(require('ssb-ebt'))
+    // .use(require('ssb-conn'))
+    .use(require('ssb-conn/core'))
+    .use(require('ssb-conn/compat')) // for ssb.gossip
+    // use a minimal ssb-conn, exlcuding the scheduler,
+    // which would otherwise prune connections down to 3
+
+  // Staltz recommends writing own scheduler, see README for template
+  // simple idea could be:
+  // 1. bootstrap with hosts above
+  // 2. live query to discover 'pub' messages with hosts
+  // 3. cycle through a series of different connections to discover more messages
+  // outstanding question: getStatus progress stuck?
     .use(require('ssb-replication-scheduler'))
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
@@ -45,16 +57,24 @@ module.exports = function SSB (opts = {}) {
   ssb.lan.start()
   pull(
     ssb.conn.peers(),
-    pull.map(update => update.map(ev => [ev[1].key, ev[1].state])),
-    pull.log()
+    pull.through(() => console.log('>')),
+    flatMap(evs => evs),
+    pull.asyncMap((ev, cb) => {
+      const feedId = ev[1].key
+      ssb.aboutSelf.get(feedId, (err, details) => {
+        cb(null, {
+          state: ev[1].state,
+          name: err ? feedId : (details.name || feedId)
+        })
+      })
+    }),
+    pull.drain(({ state, name }) => {
+      const output = `${state.padStart(13, ' ')} - ${name}`
+      state === 'connected'
+        ? console.log(green(output))
+        : console.log(output)
+    })
   )
-  ssb.db.onMsgAdded(m => {
-    if (m.kvt.value.author !== ssb.id) return
-    console.log(
-	    m.kvt.value.sequence,
-	    JSON.stringify(m.kvt.value.content, null, 2)
-    )
-  })
 
   peers.forEach(({ name, id, host, invite }) => {
     if (id) {
@@ -67,8 +87,8 @@ module.exports = function SSB (opts = {}) {
           },
           (data, cb) => {
             if (invite) ssb.invite.use(invite, cb)
-	    else cb(null, null)
-	  },
+            else cb(null, null)
+          },
           (data, cb) => {
             if (host) ssb.conn.connect(host, cb)
             else cb(null)
@@ -105,4 +125,8 @@ module.exports = function SSB (opts = {}) {
   )
 
   return ssb
+}
+
+function green (string) {
+  return '\x1b[32m' + string + '\x1b[0m'
 }
