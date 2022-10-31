@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 const graphqlServer = require('./src/graphql')
 const SSB = require('./src/ssb-server')
 
