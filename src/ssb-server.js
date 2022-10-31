@@ -4,14 +4,14 @@ const ssbKeys = require('ssb-keys')
 const { join } = require('path')
 const waterfall = require('run-waterfall')
 const pull = require('pull-stream')
+const flatMap = require('pull-flatmap')
 
 const peers = require('./peers')
 const DB_PATH = join(__dirname, '../db')
 
-module.exports = function SSB (opts = {}) {
+function startServer (opts = {}) {
   const stack = SecretStack({ caps })
     .use([
-
       require('ssb-db2/core'),
       require('ssb-db2/compat/publish'),
       require('ssb-classic'),
@@ -34,28 +34,16 @@ module.exports = function SSB (opts = {}) {
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
 
-  const ssb = stack({
+  return stack({
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),
     path: DB_PATH,
     friends: { hops: 6 },
     // lan: { legacy: false },
     ...opts
   })
+}
 
-  ssb.lan.start()
-  pull(
-    ssb.conn.peers(),
-    pull.map(update => update.map(ev => [ev[1].key, ev[1].state])),
-    pull.log()
-  )
-  ssb.db.onMsgAdded(m => {
-    if (m.kvt.value.author !== ssb.id) return
-    console.log(
-	    m.kvt.value.sequence,
-	    JSON.stringify(m.kvt.value.content, null, 2)
-    )
-  })
-
+function seedReplication (ssb) {
   peers.forEach(({ name, id, host, invite }) => {
     if (id) {
       waterfall(
@@ -67,8 +55,8 @@ module.exports = function SSB (opts = {}) {
           },
           (data, cb) => {
             if (invite) ssb.invite.use(invite, cb)
-	    else cb(null, null)
-	  },
+            else cb(null, null)
+          },
           (data, cb) => {
             if (host) ssb.conn.connect(host, cb)
             else cb(null)
@@ -80,7 +68,9 @@ module.exports = function SSB (opts = {}) {
       )
     }
   })
+}
 
+function requestAvatars (ssb) {
   const { where, type, toPullStream, live } = ssb.db.operators
   pull(
     ssb.db.query(
@@ -103,6 +93,50 @@ module.exports = function SSB (opts = {}) {
       }
     })
   )
+}
+
+function logging (ssb) {
+  pull(
+    ssb.conn.peers(),
+    pull.through(() => console.log(' ')),
+    flatMap(evs => evs),
+    pull.asyncMap((ev, cb) => {
+      const feedId = ev[1].key
+      ssb.aboutSelf.get(feedId, (err, details) => {
+        cb(null, {
+          state: ev[1].state,
+          name: err ? feedId : (details.name || feedId)
+        })
+      })
+    }),
+    pull.drain(({ state, name }) => {
+      state === 'connected'
+        ? console.log(`${bold(green(state.padStart(13, ' ')))} - ${green(name)}`)
+        : console.log(`${state.padStart(13, ' ')} - ${name}`)
+    })
+  )
+
+  ssb.db.onMsgAdded(m => {
+    if (m.kvt.value.author !== ssb.id) return
+    console.log(
+      m.kvt.value.sequence,
+      JSON.stringify(m.kvt.value.content, null, 2)
+    )
+  })
+
+  function bold (string) { return '\x1b[1m' + string + '\x1b[0m' }
+  function green (string) { return '\x1b[32m' + string + '\x1b[0m' }
+}
+
+module.exports = function SSB (opts = {}) {
+  const ssb = startServer(opts)
+
+  logging(ssb)
+
+  ssb.lan.start()
+  seedReplication(ssb)
+
+  requestAvatars(ssb)
 
   return ssb
 }
