@@ -1,10 +1,10 @@
 # planetary-pub2
 
-## Run locally
+## Run locally (Development)
 
 ```bash
 npm install
-npm start
+npm run dev
 ```
 
 ## Deploy
@@ -27,16 +27,22 @@ npm start
     cd planetary-graphql
     npm i
     ```
-6. install [pm2](https://www.npmjs.com/package/pm2) (process manager)
+6. set up environment variables
+    ```bash
+    cp .env.template .env
+    ```
+    - you will need to edit this file to make sure the details are correct
+    - `ROOM_ADDRESS` is optional, and only needed for room methods
+7. install [pm2](https://www.npmjs.com/package/pm2) (process manager)
    ```bash
    npm install pm2 -g
    pm2 startup
    ```
-7. start the process!
+8. start the process!
    ```bash
    pm2 start index.js
    ```
-8. check the server is live using your browser
+9. check the server is live using your browser
    - visit e.g. `http://157.230.72.191:4000/graphql` (assume default PORT)
 
 
