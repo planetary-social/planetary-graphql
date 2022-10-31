@@ -43,17 +43,27 @@ module.exports = gql`
     expression: String
   }
 
+  type Room {
+    multiaddress: String!
+    name: String
+    description: String
+    members: [Profile]
+  }
+
   type Query {
     getProfile(id: ID!): Profile
 
     """
     gets the peers who have opted into publicWebHosting
-
     """
     getProfiles(limit: Int): [Profile]
 
     # getThread(id: ID!, preview: Boolean): Thread
-    # getSample(limit: Int): [Thread]
-    # getProfiles(limit: Int) [Profile]
+
+    """
+    get a detail on the room you paired with this api server
+    (requires environment variable ROOM_ADDRESS to be present)
+    """
+    getMyRoom: Room
   }
 `

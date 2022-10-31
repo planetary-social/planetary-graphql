@@ -22,6 +22,7 @@ module.exports = function Resolvers (ssb) {
     profile.id = feedId
     return profile
   }
+  const canPubliclyHost = (feedId) => getProfile(feedId).then(Boolean)
 
   /**
    * Gets all the feed ids of followers of the given feed id
@@ -72,7 +73,7 @@ module.exports = function Resolvers (ssb) {
         pullParaMap((feedId, cb) => {
           getProfile(feedId)
             .then(profile => cb(null, profile))
-            .catch(err => cb(err))
+            .catch(cb)
         }, 5),
         pull.filter(Boolean),
         // TODO: This removes the profiles that came back as null, we might want to show something in place of that
@@ -168,49 +169,85 @@ module.exports = function Resolvers (ssb) {
   }
 
   /**
-   * Takes the messages from a thread and maps them based on whether
-   * a profile is returned for the author of that message or not.
-   * Messages from someone who hasnt yet opted in to publicWebHosting or
-   * a profile wasnt found for them, will return empty values
-   * @param {array} messages - messages in a thread
+   * Takes a messages and maps it either to a Comment or "empty" Comment depending on
+   * whether the author has opted into publicWebHosting.
+   * @param {object} msg - a post message in kv format
+   * @param {function} cb - an error first callback function
    */
-  const mapMessages = (messages) => {
-    return new Promise((resolve, reject) => {
-      pull(
-        pull.values(messages),
-        pullParaMap((msg, cb) => {
-          getProfile(msg.value.author)
-            .then(profile => {
-              // if there was a profile, thats great
-              if (profile) {
-                return cb(null, {
-                  id: msg.key,
-                  author: msg.value.author,
-                  text: msg.value.content.text,
-                  timestamp: msg.value.timestamp // asserted publish time
-                })
-              }
+  function publicifyMessage (msg, cb) {
+    const message = {
+      id: null,
+      author: null,
+      timestamp: msg.value.timestamp, // asserted publish time
+      text: null
+    }
 
-              // if their isnt (could be they havent yet opted in to publicWebHosting)
-              // we need to return an empty msg instead
-              cb(null, {
-                id: null,
-                text: null,
-                timestamp: msg.timestamp,
-                author: null
-              })
-            })
-            .catch(err => cb(err))
-        }, 5),
-        pull.collect((err, res) => err ? reject(err) : resolve(res))
-      )
-    })
+    canPubliclyHost(msg.value.author)
+      .then(canHost => {
+        // if there was a profile, that means publicWebHosting === true
+        if (canHost) {
+          message.id = msg.key
+          message.author = msg.value.author
+          message.text = msg.value.content.text
+        }
+
+        cb(null, message)
+      })
+      .catch(_err => cb(null, message))
+  }
+
+  const roomState = {
+    name: null,
+    members: new Set()
+  }
+
+  if (process.env.ROOM_ADDRESS) {
+    function updateRoomData () {
+      ssb.conn.connect(process.env.ROOM_ADDRESS, (err, rpc) => {
+        if (err) return console.error('failed to connect to room', err)
+
+        rpc.room.metadata((err, data) => {
+          if (err) return console.error(err)
+          roomState.name = data.name
+
+          pull(
+            rpc.room.attendants(),
+            // Temporary hack to gather members
+            pull.drain(
+              ev => {
+                ev.ids.forEach(feedId => roomState.members.add(feedId))
+                rpc.close((err) => err && console.error(err))
+              },
+              err => {
+                if (err) console.error(err)
+              }
+            )
+          )
+        })
+      })
+    }
+
+    updateRoomData()
+    const MINUTE = 60 * 1000
+    setInterval(updateRoomData, 5 * MINUTE)
+  }
+
+  async function getMyRoom (id) {
+    if (!process.env.ROOM_ADDRESS) return null
+
+    return {
+      multiaddress: process.env.ROOM_ADDRESS,
+      name: roomState.name,
+      members: Array.from(roomState.members)
+    }
   }
 
   return {
     Query: {
-      getProfile: (_, opts) => getProfile(opts.id),
-      getProfiles: (_, opts) => getProfiles(opts)
+      getProfile: (_, { id }) => getProfile(id),
+      getProfiles: (_, opts) => getProfiles(opts),
+
+      getMyRoom: (_, { id }) => getMyRoom(id)
     },
 
     Profile: {
@@ -238,7 +275,13 @@ module.exports = function Resolvers (ssb) {
     },
 
     Thread: {
-      messages: (parent) => mapMessages(parent.messages)
+      messages: (parent) => new Promise((resolve, reject) => {
+        pull(
+          pull.values(parent.messages),
+          pullParaMap(publicifyMessage, 5),
+          pull.collect((err, res) => err ? reject(err) : resolve(res))
+        )
+      })
     },
 
     Comment: {
@@ -255,6 +298,10 @@ module.exports = function Resolvers (ssb) {
 
     Vote: {
       author: (parent) => getProfile(parent.author)
+    },
+
+    Room: {
+      members: async (parent) => getProfilesForIds(parent.members)
     }
   }
 }
