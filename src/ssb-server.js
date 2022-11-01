@@ -4,76 +4,14 @@ const ssbKeys = require('ssb-keys')
 const { join } = require('path')
 const waterfall = require('run-waterfall')
 const pull = require('pull-stream')
+const flatMap = require('pull-flatmap')
 
+const peers = require('./peers')
 const DB_PATH = join(__dirname, '../db')
 
-const pubs = [
-  // early hoomans
-  {
-    id: '@hxGxqPrplLjRG2vtjQL87abX4QKqeLgCwQpS730nNwE=.ed25519',
-    name: 'paul'
-  },
-  {
-    id: '@6ilZq3kN0F+dXFHAPjAwMm87JEb/VdB+LC9eIMW3sa0=.ed25519',
-    name: 'dinoworm 🐛'
-  },
-  {
-    id: '@ye+QM09iPcDJD6YvQYjoQc7sLF/IFhmNbEqgdzQo3lQ=.ed25519',
-    name: 'mixmix'
-  },
-  {
-    id: '@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519',
-    name: 'cryptix'
-  },
-  {
-    id: '@f/6sQ6d2CMxRUhLpspgGIulDxDCwYD7DzFzPNr7u5AU=.ed25519',
-    name: 'cel'
-  },
-  {
-    id: '@FbGoHeEcePDG3Evemrc+hm+S77cXKf8BRQgkYinJggg=.ed25519',
-    name: 'Matt McKegg'
-  },
-  {
-    id: '@EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519',
-    name: 'Dominic'
-  },
-
-  // pubs
-  {
-    name: 'ssb..celehner.com',
-    id: '@5XaVcAJ5DklwuuIkjGz4lwm2rOnMHHovhNg7BFFnyJ8=.ed25519'
-  },
-  {
-    name: 'pub.protozoa.nz',
-    id: '@ZPXx+5e+m5KcwI6Qb8fOqjoJyPY4RyeGUzY/s8BVbgY=.ed25519'
-  },
-  {
-    name: 'one.planetary.pub',
-    id: '@CIlwTOK+m6v1hT2zUVOCJvvZq7KE/65ErN6yA2yrURY=.ed25519',
-    host: 'net:one.planetary.pub:8008~shs:@CIlwTOK+m6v1hT2zUVOCJvvZq7KE/65ErN6yA2yrURY='
-  },
-  {
-    host: 'net:two.planetary.pub:8008:@7jJ7oou5pKKuyKvIlI5tl3ncjEXmZcbm3TvKqQetJIo=',
-    invite: 'two.planetary.pub:8008:@7jJ7oou5pKKuyKvIlI5tl3ncjEXmZcbm3TvKqQetJIo=.ed25519~8pETEamsgecH32ry4bj7sr7ofXtUbeOCG1qq4C7szHY='
-  },
-  {
-    host: 'net:159.89.164.120:8008:@LQ8HBiEinU5FiXGaZH9JYFGBGdsB99mepBdh/Smq3VI=',
-    invite: '159.89.164.120:8008:@LQ8HBiEinU5FiXGaZH9JYFGBGdsB99mepBdh/Smq3VI=.ed25519~lZItxcdycINquFD1SoeCYtUrLBVlc1zZmz2UAln6TOE=te'
-  },
-  {
-    host: 'net:four.planetary.pub:8008:@5KDK98cjIQ8bPoBkvp7bCwBXoQMlWpdIbCFyXER8Lbw=',
-    invite: 'four.planetary.pub:8008:@5KDK98cjIQ8bPoBkvp7bCwBXoQMlWpdIbCFyXER8Lbw=.ed25519~e9ZRXEw0RSTE6FX8jOwWV7yfMRDsAZkzlhCRbVMBUEc='
-  },
-  {
-    host: 'net:gossip.noisebridge.info:8008:@2NANnQVdsoqk0XPiJG2oMZqaEpTeoGrxOHJkLIqs7eY='
-    // invite: 'gossip.noisebridge.info:8008:@2NANnQVdsoqk0XPiJG2oMZqaEpTeoGrxOHJkLIqs7eY=.ed25519~JWTC6+rPYPW5b5zCion0gqjcJs35h6JKpUrQoAKWgJ4='
-  }
-]
-
-module.exports = function SSB (opts = {}) {
+function startServer (opts = {}) {
   const stack = SecretStack({ caps })
     .use([
-
       require('ssb-db2/core'),
       require('ssb-db2/compat/publish'),
       require('ssb-classic'),
@@ -96,29 +34,17 @@ module.exports = function SSB (opts = {}) {
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
 
-  const ssb = stack({
+  return stack({
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),
     path: DB_PATH,
     friends: { hops: 6 },
     // lan: { legacy: false },
     ...opts
   })
+}
 
-  ssb.lan.start()
-  pull(
-    ssb.conn.peers(),
-    pull.map(update => update.map(ev => [ev[1].key, ev[1].state])),
-    pull.log()
-  )
-  ssb.db.onMsgAdded(m => {
-    if (m.kvt.value.author !== ssb.id) return
-    console.log(
-	    m.kvt.value.sequence,
-	    JSON.stringify(m.kvt.value.content, null, 2)
-    )
-  })
-
-  pubs.forEach(({ name, id, host, invite }) => {
+function seedReplication (ssb) {
+  peers.forEach(({ name, id, host, invite }) => {
     if (id) {
       waterfall(
         [
@@ -129,8 +55,8 @@ module.exports = function SSB (opts = {}) {
           },
           (data, cb) => {
             if (invite) ssb.invite.use(invite, cb)
-	    else cb(null, null)
-	  },
+            else cb(null, null)
+          },
           (data, cb) => {
             if (host) ssb.conn.connect(host, cb)
             else cb(null)
@@ -142,6 +68,75 @@ module.exports = function SSB (opts = {}) {
       )
     }
   })
+}
+
+function requestAvatars (ssb) {
+  const { where, type, toPullStream, live } = ssb.db.operators
+  pull(
+    ssb.db.query(
+      where(type('about')),
+      live({ old: true }),
+      toPullStream()
+    ),
+    pull.filter(m => (
+      m.value.author === m.value.content.about &&
+      m.value.content.image
+    )),
+    pull.asyncMap((m, cb) => ssb.aboutSelf.get(m.value.author, cb)),
+    pull.drain(about => {
+      if (about.image) {
+        ssb.blobs.has(about.image, (err, hasBlob) => {
+          if (err) return console.warn(err)
+
+          if (!hasBlob) ssb.blobs.want(about.image, () => {})
+        })
+      }
+    })
+  )
+}
+
+function logging (ssb) {
+  pull(
+    ssb.conn.peers(),
+    pull.through(() => console.log(' ')),
+    flatMap(evs => evs),
+    pull.asyncMap((ev, cb) => {
+      const feedId = ev[1].key
+      ssb.aboutSelf.get(feedId, (err, details) => {
+        cb(null, {
+          state: ev[1].state,
+          name: err ? feedId : (details.name || feedId)
+        })
+      })
+    }),
+    pull.drain(({ state, name }) => {
+      state === 'connected'
+        ? console.log(`${bold(green(state.padStart(13, ' ')))} - ${green(name)}`)
+        : console.log(`${state.padStart(13, ' ')} - ${name}`)
+    })
+  )
+
+  ssb.db.onMsgAdded(m => {
+    if (m.kvt.value.author !== ssb.id) return
+    console.log(
+      m.kvt.value.sequence,
+      JSON.stringify(m.kvt.value.content, null, 2)
+    )
+  })
+
+  function bold (string) { return '\x1b[1m' + string + '\x1b[0m' }
+  function green (string) { return '\x1b[32m' + string + '\x1b[0m' }
+}
+
+module.exports = function SSB (opts = {}) {
+  const ssb = startServer(opts)
+
+  logging(ssb)
+
+  ssb.lan.start()
+  seedReplication(ssb)
+
+  requestAvatars(ssb)
 
   return ssb
 }

@@ -28,6 +28,7 @@
     "dotenv": "^16.0.3",
     "express": "^4.18.1",
     "graphql": "^15.0.0",
+    "pull-flatmap": "^0.0.1",
     "pull-paramap": "^1.2.2",
     "pull-stream": "^3.6.14",
     "run-waterfall": "^1.1.7",
@@ -35,13 +36,13 @@
     "ssb-blobs": "^2.0.1",
     "ssb-caps": "^1.1.0",
     "ssb-conn": "^6.0.3",
-    "ssb-db2": "^6.2.2",
+    "ssb-db2": "^6.2.5",
     "ssb-ebt": "^9.1.0",
     "ssb-friends": "^5.1.7",
     "ssb-lan": "^1.2.3",
     "ssb-replication-scheduler": "^2.0.5",
     "ssb-serve-blobs": "^3.1.1",
-    "ssb-threads": "^10.0.4"
+    "ssb-threads": "^10.1.1"
   },
   "devDependencies": {
     "@apollo/client": "^3.6.9",
