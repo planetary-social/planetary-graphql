@@ -222,9 +222,7 @@ module.exports = function Resolvers (ssb) {
           descending(), // latest => oldest
           toPullStream()
         ),
-        // TODO: this doesnt take into account someone having multiple aliases in a room
         opts.limit ? pull.take(opts.limit) : null,
-        // pull.through(m => console.log(JSON.stringify(m, null, 2))),
         pull.map(m => {
           return {
             alias: m.value.content.alias,
@@ -303,6 +301,21 @@ module.exports = function Resolvers (ssb) {
 
     Vote: {
       author: (parent) => getProfile(parent.author)
+    },
+    Alias: {
+      ssbUri: (parent) => {
+        const url = new URL('ssb:experimental')
+        const searchParams = url.searchParams
+      
+        searchParams.set('action', 'consume-alias')
+        searchParams.set('roomId', parent.roomId)
+        searchParams.set('alias', parent.alias)
+        searchParams.set('userId', parent.author)
+        searchParams.set('signature', parent.signature)
+        // searchParams.set('multiserverAddress', data.multiserverAddress)
+        console.error('Alias.ssbUri is missing the multiserver address')
+        return url.href
+      }
     }
   }
 }
