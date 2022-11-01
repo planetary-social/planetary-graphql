@@ -35,17 +35,6 @@ module.exports = gql`
     replies: [Comment]
   }
 
-  type RoomAlias {
-    id: ID
-    author: Profile
-    action: String
-    alias: String
-    room: String
-    aliasURL: String
-    signature: String
-  }
-
-
   type Vote {
     author: Profile
     value: String  # like, heart, ghost, fire
@@ -55,6 +44,7 @@ module.exports = gql`
 
   type Query {
     getProfile(id: ID!): Profile
+    getProfileByAlias(alias: String!): Profile
 
     """
     gets the peers who have opted into publicWebHosting
@@ -62,7 +52,6 @@ module.exports = gql`
     """
     getProfiles(limit: Int): [Profile]
     
-    getRoomByAlias(alias: String!): RoomAlias
 
     # getThread(id: ID!, preview: Boolean): Thread
     # getSample(limit: Int): [Thread]

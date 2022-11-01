@@ -220,17 +220,7 @@ module.exports = function Resolvers (ssb) {
           descending(), // latest => oldest
           toPullStream()
         ),
-        // TODO: what if it returns multiple results
         pull.take(1),
-
-        pull.map(m => {
-          return {
-            id: m.key,
-            ...m.value.content, // { action, alias, room, aliasURL }
-            author: m.value.author,
-            signature: m.value.signature
-          }
-        }),
         pull.collect((err, [msg]) => {
           if (err) reject(err)
           else resolve(msg)
@@ -243,7 +233,16 @@ module.exports = function Resolvers (ssb) {
     Query: {
       getProfile: (_, opts) => getProfile(opts.id),
       getProfiles: (_, opts) => getProfiles(opts),
-      getRoomByAlias: (_, opts) => getRoomByAlias(opts.alias)
+
+      getProfileByAlias: async (_, opts) => {
+        const room = await getRoomByAlias(opts.alias)
+        if (!room) return
+
+        // get the feedId of the author of the room
+        const profile = await getProfile(room.value.author)
+        return profile
+      }
+
     },
 
     Profile: {
@@ -287,9 +286,6 @@ module.exports = function Resolvers (ssb) {
     },
 
     Vote: {
-      author: (parent) => getProfile(parent.author)
-    },
-    RoomAlias: {
       author: (parent) => getProfile(parent.author)
     }
   }

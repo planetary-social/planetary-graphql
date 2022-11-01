@@ -104,3 +104,6 @@ dist
 
 # pub db
 db
+
+# vs code
+.DS_Store
