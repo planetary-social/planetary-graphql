@@ -207,23 +207,36 @@ module.exports = function Resolvers (ssb) {
     })
   }
 
-  const getRoomByAlias = (alias) => {
+  const getAliases = (opts) => {
     return new Promise((resolve, reject) => {
       pull(
         ssb.db.query(
           where(
             and(
               type('room/alias'),
-              slowEqual('value.content.alias', alias)
+              opts.roomId ? slowEqual('value.content.room', opts.roomId) : null,
+              opts.alias ? slowEqual('value.content.alias', opts.alias) : null,
+              opts.feedId ? slowEqual('value.author', opts.feedId) : null
             )
           ),
           descending(), // latest => oldest
           toPullStream()
         ),
-        pull.take(1),
-        pull.collect((err, [msg]) => {
+        // TODO: this doesnt take into account someone having multiple aliases in a room
+        opts.limit ? pull.take(opts.limit) : null,
+        // pull.through(m => console.log(JSON.stringify(m, null, 2))),
+        pull.map(m => {
+          return {
+            alias: m.value.content.alias,
+            roomId: m.value.content.room,
+            aliasURL: m.value.content.aliasURL,
+            author: m.value.author,
+            signature: m.value.signature
+          }
+        }),
+        pull.collect((err, aliases) => {
           if (err) reject(err)
-          else resolve(msg)
+          else resolve(aliases)
         })
       )
     })
@@ -234,15 +247,16 @@ module.exports = function Resolvers (ssb) {
       getProfile: (_, opts) => getProfile(opts.id),
       getProfiles: (_, opts) => getProfiles(opts),
 
-      getProfileByAlias: async (_, opts) => {
-        const room = await getRoomByAlias(opts.alias)
-        if (!room) return
+      getProfileByAlias: async (_, opts) => { // opts = { alias, roomId }
+        // try and find an alias matching the given one, with the given roomId
+        // TODO: what happens if the ssb server doesnt know about the alias
+        // should we get this information from the room server instead?
+        const aliases = await getAliases({ ...opts, limit: 1 })
+        if (!aliases?.length) return
 
-        // get the feedId of the author of the room
-        const profile = await getProfile(room.value.author)
-        return profile
+        // NOTE: if no profile was found, this will return nothing
+        return getProfile(aliases[0]?.author)
       }
-
     },
 
     Profile: {
@@ -266,7 +280,9 @@ module.exports = function Resolvers (ssb) {
       followingCount: async (parent) => {
         const ids = await getFollowingIds(parent.id)
         return ids?.length
-      }
+      },
+
+      aliases: async (parent, opts) => getAliases({ feedId: parent.id, roomId: opts.roomId })
     },
 
     Thread: {
