@@ -18,7 +18,7 @@ module.exports = gql`
     following: [Profile]
     followingCount: Int
 
-    aliases(roomId: String): [Alias]
+    ssbURI: String
   }
 
   type Thread {
@@ -37,14 +37,6 @@ module.exports = gql`
     replies: [Comment]
   }
 
-  type Alias {
-    alias: String
-    ssbUri: String
-    aliasURL: String
-    roomId: String
-    signature: String
-  }
-
   type Vote {
     author: Profile
     value: String  # like, heart, ghost, fire
@@ -54,7 +46,7 @@ module.exports = gql`
 
   type Query {
     getProfile(id: ID!): Profile
-    getProfileByAlias(alias: String!, roomId: String!): Profile
+    getProfileByAlias(alias: String!): Profile
 
     """
     gets the peers who have opted into publicWebHosting

@@ -31,8 +31,8 @@ npm run dev
     ```bash
     cp .env.template .env
     ```
-    - you will need to edit this file to make sure the details are correct
-    - `ROOM_ADDRESS` is optional, and only needed for room methods
+    - you will need to edit this file to make sure the details are correct`
+    - `ROOM_ADDRESS` and `ROOM_URL` are optional, and only needed for room methods
 7. install [pm2](https://www.npmjs.com/package/pm2) (process manager)
    ```bash
    npm install pm2 -g

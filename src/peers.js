@@ -29,6 +29,20 @@ module.exports = [
     name: 'Dominic'
   },
 
+  // TEMP: For development
+  {
+    id: "@UsApPEhMpZaoRzoT6PfWcBct5vOaHXntpndwAbTw3po=.ed25519",
+    name: 'Cherese (Planetary)'
+  },
+  {
+    id: '@Z9Su0CwHlLBmS3W6CIva67B/9oiz24MVJCpMJ4lcDmE=.ed25519',
+    name: 'Cherese (Patchwork)'
+  },
+  {
+    id: '@ociUEdLMpRbDfZUCWcepHskn52kK3VrkUhz0LRI38ig=.ed25519',
+    name: 'Cherese (Manyverse)'
+  },
+
   // pubs
   {
     name: 'ssb..celehner.com',
@@ -62,5 +76,12 @@ module.exports = [
     host: 'net:gossip.noisebridge.info:8008~shs:2NANnQVdsoqk0XPiJG2oMZqaEpTeoGrxOHJkLIqs7eY=',
     id: '@2NANnQVdsoqk0XPiJG2oMZqaEpTeoGrxOHJkLIqs7eY=.ed25519'
     // invite: 'gossip.noisebridge.info:8008:@2NANnQVdsoqk0XPiJG2oMZqaEpTeoGrxOHJkLIqs7eY=.ed25519~JWTC6+rPYPW5b5zCion0gqjcJs35h6JKpUrQoAKWgJ4='
+  },
+
+  // rooms
+  {
+    id: '@uhI9kMjtjJSK4R6R5NGAm51e2iSC5D8Q354tGvbzBI4=.ed25519',
+    name: 'civic.love',
+    host: 'net:civic.love:8008~shs:uhI9kMjtjJSK4R6R5NGAm51e2iSC5D8Q354tGvbzBI4='
   }
 ]

@@ -1,8 +1,13 @@
+const fetch = require('node-fetch')
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
 const { where, type, descending, toPullStream, votesFor, and, slowEqual } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('../../lib/to-ssb-uri')
+
+const ROOM_URL = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development'
+? `http://localhost:3000`
+: process.env.ROOM_URL
 
 module.exports = function Resolvers (ssb) {
   const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
@@ -207,36 +212,15 @@ module.exports = function Resolvers (ssb) {
     })
   }
 
-  const getAliases = (opts) => {
+  const getAlias = (alias) => {
     return new Promise((resolve, reject) => {
-      pull(
-        ssb.db.query(
-          where(
-            and(
-              type('room/alias'),
-              opts.roomId ? slowEqual('value.content.room', opts.roomId) : null,
-              opts.alias ? slowEqual('value.content.alias', opts.alias) : null,
-              opts.feedId ? slowEqual('value.author', opts.feedId) : null
-            )
-          ),
-          descending(), // latest => oldest
-          toPullStream()
-        ),
-        opts.limit ? pull.take(opts.limit) : null,
-        pull.map(m => {
-          return {
-            alias: m.value.content.alias,
-            roomId: m.value.content.room,
-            aliasURL: m.value.content.aliasURL,
-            author: m.value.author,
-            signature: m.value.signature
-          }
-        }),
-        pull.collect((err, aliases) => {
-          if (err) reject(err)
-          else resolve(aliases)
+      fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
+        .then(res => res.json())
+        .then(res => {
+          if (res.error) return resolve(null)
+
+          resolve(res.data)
         })
-      )
     })
   }
 
@@ -245,15 +229,14 @@ module.exports = function Resolvers (ssb) {
       getProfile: (_, opts) => getProfile(opts.id),
       getProfiles: (_, opts) => getProfiles(opts),
 
-      getProfileByAlias: async (_, opts) => { // opts = { alias, roomId }
-        // try and find an alias matching the given one, with the given roomId
-        // TODO: what happens if the ssb server doesnt know about the alias
-        // should we get this information from the room server instead?
-        const aliases = await getAliases({ ...opts, limit: 1 })
-        if (!aliases?.length) return
-
-        // NOTE: if no profile was found, this will return nothing
-        return getProfile(aliases[0]?.author)
+      getProfileByAlias: async (_, opts) => { // opts = { alias }
+        const alias = await getAlias(opts.alias)
+        if (!alias) return
+  
+        const profile = await p(getProfile)(alias?.userId)
+        profile.alias = alias // this gets passed down to child resolvers Profile.ssbUri
+        
+        return profile
       }
     },
 
@@ -279,8 +262,25 @@ module.exports = function Resolvers (ssb) {
         const ids = await getFollowingIds(parent.id)
         return ids?.length
       },
+      // TODO: we need to be able to get alias by feedId in order for this to work
+      // for profiles that use the getProfile resolver
+      // this will only work for profiles found using the getProfileByAlias resolver
+      ssbURI: (parent) => {
+        const alias = parent.alias
+        if (!alias) return
+      
+        const url = new URL('ssb:experimental')
+        const searchParams = url.searchParams
+      
+        searchParams.set('action', 'consume-alias')
+        searchParams.set('roomId', alias.roomId)
+        searchParams.set('alias', alias.alias)
+        searchParams.set('userId', alias.author)
+        searchParams.set('signature', alias.signature)
+        searchParams.set('multiserverAddress', alias.multiserverAddress)
 
-      aliases: async (parent, opts) => getAliases({ feedId: parent.id, roomId: opts.roomId })
+        return url.href
+      }
     },
 
     Thread: {
@@ -301,21 +301,6 @@ module.exports = function Resolvers (ssb) {
 
     Vote: {
       author: (parent) => getProfile(parent.author)
-    },
-    Alias: {
-      ssbUri: (parent) => {
-        const url = new URL('ssb:experimental')
-        const searchParams = url.searchParams
-      
-        searchParams.set('action', 'consume-alias')
-        searchParams.set('roomId', parent.roomId)
-        searchParams.set('alias', parent.alias)
-        searchParams.set('userId', parent.author)
-        searchParams.set('signature', parent.signature)
-        // searchParams.set('multiserverAddress', data.multiserverAddress)
-        console.error('Alias.ssbUri is missing the multiserver address')
-        return url.href
-      }
     }
   }
 }
