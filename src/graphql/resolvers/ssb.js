@@ -1,13 +1,13 @@
 const fetch = require('node-fetch')
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
-const { where, type, descending, toPullStream, votesFor, and, slowEqual } = require('ssb-db2/operators')
+const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('../../lib/to-ssb-uri')
 
 const ROOM_URL = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development'
-? `http://localhost:3000`
-: process.env.ROOM_URL
+  ? 'https://civic.love'
+  : process.env.ROOM_URL
 
 module.exports = function Resolvers (ssb) {
   const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
@@ -19,6 +19,7 @@ module.exports = function Resolvers (ssb) {
    * @param {string} feedId - feedId of a user
    */
   const getProfile = async (feedId) => {
+    console.log(feedId)
     const profile = await p(ssb.aboutSelf.get)(feedId)
 
     if (!profile) return null
@@ -219,7 +220,7 @@ module.exports = function Resolvers (ssb) {
         .then(res => {
           if (res.error) return resolve(null)
 
-          resolve(res.data)
+          resolve(res)
         })
     })
   }
@@ -232,11 +233,18 @@ module.exports = function Resolvers (ssb) {
       getProfileByAlias: async (_, opts) => { // opts = { alias }
         const alias = await getAlias(opts.alias)
         if (!alias) return
-  
-        const profile = await p(getProfile)(alias?.userId)
-        profile.alias = alias // this gets passed down to child resolvers Profile.ssbUri
-        
-        return profile
+
+        return new Promise((resolve, reject) => {
+          getProfile(alias.userId)
+            .then((profile) => {
+              if (!profile) return resolve(null)
+
+              // the alias gets passed on the the child resolver Profile.ssbURI
+              profile.alias = alias
+
+              resolve(profile)
+            })
+        })
       }
     },
 
