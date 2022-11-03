@@ -1,8 +1,13 @@
+const fetch = require('node-fetch')
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('../../lib/to-ssb-uri')
+
+const ROOM_URL = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development'
+  ? 'https://civic.love'
+  : process.env.ROOM_URL
 
 module.exports = function Resolvers (ssb) {
   const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
@@ -14,6 +19,7 @@ module.exports = function Resolvers (ssb) {
    * @param {string} feedId - feedId of a user
    */
   const getProfile = async (feedId) => {
+    console.log(feedId)
     const profile = await p(ssb.aboutSelf.get)(feedId)
 
     if (!profile) return null
@@ -242,12 +248,40 @@ module.exports = function Resolvers (ssb) {
     }
   }
 
+  const getAlias = (alias) => {
+    return new Promise((resolve, reject) => {
+      fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
+        .then(res => res.json())
+        .then(res => {
+          if (res.error) return resolve(null)
+
+          resolve(res)
+        })
+    })
+  }
+
   return {
     Query: {
-      getProfile: (_, { id }) => getProfile(id),
+      getMyRoom: (_, { id }) => getMyRoom(id),
+      getProfile: (_, opts) => getProfile(opts.id),
       getProfiles: (_, opts) => getProfiles(opts),
 
-      getMyRoom: (_, { id }) => getMyRoom(id)
+      getProfileByAlias: async (_, opts) => { // opts = { alias }
+        const alias = await getAlias(opts.alias)
+        if (!alias) return
+
+        return new Promise((resolve, reject) => {
+          getProfile(alias.userId)
+            .then((profile) => {
+              if (!profile) return resolve(null)
+
+              // the alias gets passed on the the child resolver Profile.ssbURI
+              profile.alias = alias
+
+              resolve(profile)
+            })
+        })
+      }
     },
 
     Profile: {
@@ -271,6 +305,25 @@ module.exports = function Resolvers (ssb) {
       followingCount: async (parent) => {
         const ids = await getFollowingIds(parent.id)
         return ids?.length
+      },
+      // TODO: we need to be able to get alias by feedId in order for this to work
+      // for profiles that use the getProfile resolver
+      // this will only work for profiles found using the getProfileByAlias resolver
+      ssbURI: (parent) => {
+        const alias = parent.alias
+        if (!alias) return
+      
+        const url = new URL('ssb:experimental')
+        const searchParams = url.searchParams
+      
+        searchParams.set('action', 'consume-alias')
+        searchParams.set('roomId', alias.roomId)
+        searchParams.set('alias', alias.alias)
+        searchParams.set('userId', alias.author)
+        searchParams.set('signature', alias.signature)
+        searchParams.set('multiserverAddress', alias.multiserverAddress)
+
+        return url.href
       }
     },
 

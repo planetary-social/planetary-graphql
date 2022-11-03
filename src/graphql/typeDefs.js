@@ -17,6 +17,8 @@ module.exports = gql`
     
     following: [Profile]
     followingCount: Int
+
+    ssbURI: String
   }
 
   type Thread {
@@ -35,7 +37,6 @@ module.exports = gql`
     replies: [Comment]
   }
 
-
   type Vote {
     author: Profile
     value: String  # like, heart, ghost, fire
@@ -52,11 +53,13 @@ module.exports = gql`
 
   type Query {
     getProfile(id: ID!): Profile
+    getProfileByAlias(alias: String!): Profile
 
     """
     gets the peers who have opted into publicWebHosting
     """
     getProfiles(limit: Int): [Profile]
+    
 
     # getThread(id: ID!, preview: Boolean): Thread
 
