@@ -1,5 +1,3 @@
-const pull = require('pull-stream')
-
 /**
  * The sole purpose of this plugin is to declare the remote manifest,
  * nothing else.

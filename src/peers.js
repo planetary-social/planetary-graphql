@@ -31,7 +31,7 @@ module.exports = [
 
   // TEMP: For development
   {
-    id: "@UsApPEhMpZaoRzoT6PfWcBct5vOaHXntpndwAbTw3po=.ed25519",
+    id: '@UsApPEhMpZaoRzoT6PfWcBct5vOaHXntpndwAbTw3po=.ed25519',
     name: 'Cherese (Planetary)'
   },
   {
