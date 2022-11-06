@@ -1,6 +1,7 @@
 const fetch = require('node-fetch')
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
+const pullFlatMap = require('pull-flatmap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('../../lib/to-ssb-uri')
@@ -19,7 +20,6 @@ module.exports = function Resolvers (ssb) {
    * @param {string} feedId - feedId of a user
    */
   const getProfile = async (feedId) => {
-    console.log(feedId)
     const profile = await p(ssb.aboutSelf.get)(feedId)
 
     if (!profile) return null
@@ -28,6 +28,7 @@ module.exports = function Resolvers (ssb) {
     profile.id = feedId
     return profile
   }
+  const canPubliclyHost = (feedId) => getProfile(feedId).then(Boolean)
 
   /**
    * Gets all the feed ids of followers of the given feed id
@@ -78,7 +79,7 @@ module.exports = function Resolvers (ssb) {
         pullParaMap((feedId, cb) => {
           getProfile(feedId)
             .then(profile => cb(null, profile))
-            .catch(err => cb(err))
+            .catch(cb)
         }, 5),
         pull.filter(Boolean),
         // TODO: This removes the profiles that came back as null, we might want to show something in place of that
@@ -174,43 +175,68 @@ module.exports = function Resolvers (ssb) {
   }
 
   /**
-   * Takes the messages from a thread and maps them based on whether
-   * a profile is returned for the author of that message or not.
-   * Messages from someone who hasnt yet opted in to publicWebHosting or
-   * a profile wasnt found for them, will return empty values
-   * @param {array} messages - messages in a thread
+   * Takes a messages and maps it either to a Comment or "empty" Comment depending on
+   * whether the author has opted into publicWebHosting.
+   * @param {object} msg - a post message in kv format
+   * @param {function} cb - an error first callback function
    */
-  const mapMessages = (messages) => {
-    return new Promise((resolve, reject) => {
-      pull(
-        pull.values(messages),
-        pullParaMap((msg, cb) => {
-          getProfile(msg.value.author)
-            .then(profile => {
-              // if there was a profile, thats great
-              if (profile) {
-                return cb(null, {
-                  id: msg.key,
-                  author: msg.value.author,
-                  text: msg.value.content.text,
-                  timestamp: msg.value.timestamp // asserted publish time
+  function publicifyMessage (msg, cb) {
+    const message = {
+      id: null,
+      author: null,
+      timestamp: msg.value.timestamp, // asserted publish time
+      text: null
+    }
+
+    canPubliclyHost(msg.value.author)
+      .then(canHost => {
+        // if there was a profile, that means publicWebHosting === true
+        if (canHost) {
+          message.id = msg.key
+          message.author = msg.value.author
+          message.text = msg.value.content.text
+        }
+
+        cb(null, message)
+      })
+      .catch(_err => cb(null, message))
+  }
+
+  const roomState = {
+    name: null,
+    members: new Set()
+  }
+
+  if (process.env.ROOM_ADDRESS) {
+    function updateRoomData () {
+      ssb.conn.connect(process.env.ROOM_ADDRESS, (err, rpc) => {
+        if (err) return console.error('failed to connect to room', err)
+
+        rpc.room.metadata((err, data) => {
+          if (err) return console.error(err)
+          roomState.name = data.name
+
+          pull(
+            rpc.room.members({}),
+            pullFlatMap(arr => arr),
+            pull.map(member => member.id),
+            pull.drain(
+              feedId => roomState.members.add(feedId),
+              err => {
+                if (err) console.error('rpc.room.members error', err)
+                rpc.close((err) => {
+                  if (err) console.error('rpc.close error', err)
                 })
               }
+            )
+          )
+        })
+      })
+    }
 
-              // if their isnt (could be they havent yet opted in to publicWebHosting)
-              // we need to return an empty msg instead
-              cb(null, {
-                id: null,
-                text: null,
-                timestamp: msg.timestamp,
-                author: null
-              })
-            })
-            .catch(err => cb(err))
-        }, 5),
-        pull.collect((err, res) => err ? reject(err) : resolve(res))
-      )
-    })
+    updateRoomData()
+    const MINUTE = 60 * 1000
+    setInterval(updateRoomData, 5 * MINUTE)
   }
 
   const getAlias = (alias) => {
@@ -227,6 +253,15 @@ module.exports = function Resolvers (ssb) {
 
   return {
     Query: {
+      getMyRoom () {
+        if (!process.env.ROOM_ADDRESS) return null
+
+        return {
+          multiaddress: process.env.ROOM_ADDRESS,
+          name: roomState.name,
+          members: Array.from(roomState.members)
+        }
+      },
       getProfile: (_, opts) => getProfile(opts.id),
       getProfiles: (_, opts) => getProfiles(opts),
 
@@ -276,10 +311,10 @@ module.exports = function Resolvers (ssb) {
       ssbURI: (parent) => {
         const alias = parent.alias
         if (!alias) return
-      
+
         const url = new URL('ssb:experimental')
         const searchParams = url.searchParams
-      
+
         searchParams.set('action', 'consume-alias')
         searchParams.set('roomId', alias.roomId)
         searchParams.set('alias', alias.alias)
@@ -292,7 +327,13 @@ module.exports = function Resolvers (ssb) {
     },
 
     Thread: {
-      messages: (parent) => mapMessages(parent.messages)
+      messages: (parent) => new Promise((resolve, reject) => {
+        pull(
+          pull.values(parent.messages),
+          pullParaMap(publicifyMessage, 5),
+          pull.collect((err, res) => err ? reject(err) : resolve(res))
+        )
+      })
     },
 
     Comment: {
@@ -309,6 +350,10 @@ module.exports = function Resolvers (ssb) {
 
     Vote: {
       author: (parent) => getProfile(parent.author)
+    },
+
+    Room: {
+      members: async (parent) => getProfilesForIds(parent.members)
     }
   }
 }

@@ -9,7 +9,7 @@ const express = require('express')
 const { promisify } = require('util')
 
 const typeDefs = require('./typeDefs')
-const SSBResolvers = require('./resolvers/ssb')
+const SSBResolvers = require('./resolvers')
 
 module.exports = function GraphqlServer (ssb) {
   return async function graphqlServer (opts = { port: 4000 }, cb) {

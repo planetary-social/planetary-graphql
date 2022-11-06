@@ -33,6 +33,7 @@ function startServer (opts = {}) {
     .use(require('ssb-replication-scheduler'))
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
+    .use(require('./ssb-room-plugin'))
 
   return stack({
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),
@@ -63,7 +64,7 @@ function seedReplication (ssb) {
           }
         ],
         (err, connection) => {
-          // if (err) console.error(err)
+          if (err) console.error(err)
         }
       )
     }
@@ -131,7 +132,9 @@ function logging (ssb) {
 module.exports = function SSB (opts = {}) {
   const ssb = startServer(opts)
 
-  logging(ssb)
+  console.log({ feedId: ssb.id })
+
+  if (process.env.LOGGING) logging(ssb)
 
   ssb.lan.start()
   seedReplication(ssb)

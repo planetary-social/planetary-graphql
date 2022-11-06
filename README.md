@@ -46,6 +46,13 @@ npm run dev
    - visit e.g. `http://157.230.72.191:4000/graphql` (assume default PORT)
 
 
+#### Pair with a Room Server (optional)
+
+If you'd like this graphql server to work with a room-server to show info about people in that room,
+you will need to set up:
+1. add this graphql peer as a member (you can get the feed `id` from `db/secret`)
+2. add the multiserver address for the room in `.env` as `ROOM_ADDRESS`
+
 ### Health checks
 
 If using `pm2`, you can run `pm2 list` to see the cpu/mem/uptime of your server.
