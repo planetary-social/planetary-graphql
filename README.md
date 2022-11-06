@@ -50,7 +50,7 @@ npm run dev
 
 If you'd like this graphql server to work with a room-server to show info about people in that room,
 you will need to set up:
-1. add this graphql peer as a member (you can geed the feed `id` from `db/secret`)
+1. add this graphql peer as a member (you can get the feed `id` from `db/secret`)
 2. add the multiserver address for the room in `.env` as `ROOM_ADDRESS`
 
 ### Health checks
