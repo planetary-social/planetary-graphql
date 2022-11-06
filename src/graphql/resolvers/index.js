@@ -1,6 +1,7 @@
 const fetch = require('node-fetch')
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
+const pullFlatMap = require('pull-flatmap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('../../lib/to-ssb-uri')
@@ -19,7 +20,6 @@ module.exports = function Resolvers (ssb) {
    * @param {string} feedId - feedId of a user
    */
   const getProfile = async (feedId) => {
-    console.log(feedId)
     const profile = await p(ssb.aboutSelf.get)(feedId)
 
     if (!profile) return null
@@ -217,15 +217,16 @@ module.exports = function Resolvers (ssb) {
           roomState.name = data.name
 
           pull(
-            rpc.room.attendants(),
-            // Temporary hack to gather members
+            rpc.room.members({}),
+            pullFlatMap(arr => arr),
+            pull.map(member => member.id),
             pull.drain(
-              ev => {
-                ev.ids.forEach(feedId => roomState.members.add(feedId))
-                rpc.close((err) => err && console.error(err))
-              },
+              feedId => roomState.members.add(feedId),
               err => {
-                if (err) console.error(err)
+                if (err) console.error('rpc.room.members error', err)
+                rpc.close((err) => {
+                  if (err) console.error('rpc.close error', err)
+                })
               }
             )
           )
@@ -236,16 +237,6 @@ module.exports = function Resolvers (ssb) {
     updateRoomData()
     const MINUTE = 60 * 1000
     setInterval(updateRoomData, 5 * MINUTE)
-  }
-
-  async function getMyRoom (id) {
-    if (!process.env.ROOM_ADDRESS) return null
-
-    return {
-      multiaddress: process.env.ROOM_ADDRESS,
-      name: roomState.name,
-      members: Array.from(roomState.members)
-    }
   }
 
   const getAlias = (alias) => {
@@ -262,7 +253,15 @@ module.exports = function Resolvers (ssb) {
 
   return {
     Query: {
-      getMyRoom: (_, { id }) => getMyRoom(id),
+      getMyRoom () {
+        if (!process.env.ROOM_ADDRESS) return null
+
+        return {
+          multiaddress: process.env.ROOM_ADDRESS,
+          name: roomState.name,
+          members: Array.from(roomState.members)
+        }
+      },
       getProfile: (_, opts) => getProfile(opts.id),
       getProfiles: (_, opts) => getProfiles(opts),
 
@@ -312,10 +311,10 @@ module.exports = function Resolvers (ssb) {
       ssbURI: (parent) => {
         const alias = parent.alias
         if (!alias) return
-      
+
         const url = new URL('ssb:experimental')
         const searchParams = url.searchParams
-      
+
         searchParams.set('action', 'consume-alias')
         searchParams.set('roomId', alias.roomId)
         searchParams.set('alias', alias.alias)
