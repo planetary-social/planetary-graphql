@@ -10,6 +10,9 @@ const ROOM_URL = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'de
   ? 'https://civic.love'
   : process.env.ROOM_URL
 
+// TODO: could probably be moved into an environment variable
+const DEFAULT_LANGUAGE_CODE = 'en-GB'
+
 module.exports = function Resolvers (ssb) {
   const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
 
@@ -204,16 +207,32 @@ module.exports = function Resolvers (ssb) {
 
   const roomState = {
     name: null,
+    notices: null,
     members: new Map()
   }
 
   if (process.env.ROOM_ADDRESS) {
+
+    const getRoomNotices = () => {
+      return new Promise((resolve, reject) => {
+        fetch(ROOM_URL + '/notice/list' + '?encoding=json')
+          .then(res => res.json())
+          .then(res => {
+            if (res.error) return resolve(null)
+            resolve(res)
+          })
+      })
+    }
+
     function updateRoomData () {
+      getRoomNotices().then(notices => roomState.notices = notices)
+
       ssb.conn.connect(process.env.ROOM_ADDRESS, (err, rpc) => {
         if (err) return console.error('failed to connect to room', err)
 
         rpc.room.metadata((err, data) => {
           if (err) return console.error(err)
+
           roomState.name = data.name
 
           pull(
@@ -254,15 +273,18 @@ module.exports = function Resolvers (ssb) {
     })
   }
 
+
   return {
     Query: {
-      getMyRoom () {
+      getMyRoom (_, opts) {
         if (!process.env.ROOM_ADDRESS) return null
 
         return {
           multiaddress: process.env.ROOM_ADDRESS,
           name: roomState.name,
-          members: Array.from(roomState.members.keys())
+          members: Array.from(roomState.members.keys()),
+          notices: roomState.notices.pinned_notices,
+          language: opts.language || DEFAULT_LANGUAGE_CODE
         }
       },
       getProfile: (_, opts) => getProfile(opts.id),
@@ -359,7 +381,20 @@ module.exports = function Resolvers (ssb) {
     },
 
     Room: {
-      members: async (parent) => getProfilesForIds(parent.members)
+      members: async (parent) => getProfilesForIds(parent.members),
+      description: (parent) => {
+        const notices = parent.notices
+          ?.find(notice => notice.name === 'NoticeDescription')
+          ?.notices
+  
+        return notices
+          ?.find(notice => notice.language === parent.language)
+          ?.content
+      },
+      // TODO: other notices include:
+      // - [ ] NoticeCodeOfConduct
+      // - [ ] NoticeNews
+      // - [ ] NoticePrivaryPolicy
     }
   }
 }

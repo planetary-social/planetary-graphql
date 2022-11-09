@@ -68,6 +68,6 @@ module.exports = gql`
     get a detail on the room you paired with this api server
     (requires environment variable ROOM_ADDRESS to be present)
     """
-    getMyRoom: Room
+    getMyRoom(language: String): Room
   }
 `
