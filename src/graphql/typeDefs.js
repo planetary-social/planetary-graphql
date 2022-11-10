@@ -19,6 +19,7 @@ module.exports = gql`
     followingCount: Int
 
     ssbURI: String
+    aliases: [String]
   }
 
   type Thread {

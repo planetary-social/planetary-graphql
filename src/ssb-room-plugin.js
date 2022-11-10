@@ -8,7 +8,8 @@ module.exports = {
   manifest: {
     // attendants: 'source',
     metadata: 'async',
-    members: 'source'
+    members: 'source',
+    listAliases: 'async'
     // registerAlias: 'async',
     // revokeAlias: 'async',
   },
@@ -23,6 +24,9 @@ module.exports = {
       },
       members () {
         throw new Error('not implemented on the client')
+      },
+      listAliases () {
+        throw new Error('not implemented on the client') 
       }
 
       // registerAlias (_alias, _sig, cb) {

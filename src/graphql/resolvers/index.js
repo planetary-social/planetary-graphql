@@ -204,7 +204,7 @@ module.exports = function Resolvers (ssb) {
 
   const roomState = {
     name: null,
-    members: new Set()
+    members: new Map()
   }
 
   if (process.env.ROOM_ADDRESS) {
@@ -219,9 +219,12 @@ module.exports = function Resolvers (ssb) {
           pull(
             rpc.room.members({}),
             pullFlatMap(arr => arr),
-            pull.map(member => member.id),
+            pullParaMap((member, cb) => {
+              rpc.room.listAliases(member.id)
+                .then((aliases) => cb(null, { ...member, aliases }))
+            }, 5),
             pull.drain(
-              feedId => roomState.members.add(feedId),
+              member => roomState.members.set(member.id, member),
               err => {
                 if (err) console.error('rpc.room.members error', err)
                 rpc.close((err) => {
@@ -239,7 +242,7 @@ module.exports = function Resolvers (ssb) {
     setInterval(updateRoomData, 5 * MINUTE)
   }
 
-  const getAlias = (alias) => {
+  const getAliasInfo = (alias) => {
     return new Promise((resolve, reject) => {
       fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
         .then(res => res.json())
@@ -259,27 +262,17 @@ module.exports = function Resolvers (ssb) {
         return {
           multiaddress: process.env.ROOM_ADDRESS,
           name: roomState.name,
-          members: Array.from(roomState.members)
+          members: Array.from(roomState.members.keys())
         }
       },
       getProfile: (_, opts) => getProfile(opts.id),
       getProfiles: (_, opts) => getProfiles(opts),
 
       getProfileByAlias: async (_, opts) => { // opts = { alias }
-        const alias = await getAlias(opts.alias)
+        const alias = await getAliasInfo(opts.alias)
         if (!alias) return
 
-        return new Promise((resolve, reject) => {
-          getProfile(alias.userId)
-            .then((profile) => {
-              if (!profile) return resolve(null)
-
-              // the alias gets passed on the the child resolver Profile.ssbURI
-              profile.alias = alias
-
-              resolve(profile)
-            })
-        })
+        return getProfile(alias.userId)
       }
     },
 
@@ -305,24 +298,32 @@ module.exports = function Resolvers (ssb) {
         const ids = await getFollowingIds(parent.id)
         return ids?.length
       },
-      // TODO: we need to be able to get alias by feedId in order for this to work
-      // for profiles that use the getProfile resolver
-      // this will only work for profiles found using the getProfileByAlias resolver
-      ssbURI: (parent) => {
-        const alias = parent.alias
+      ssbURI: async (parent) => {
+        const member = roomState.members.get(parent.id)
+        if (!member) return
+
+        // get their alias
+        const alias = member.aliases?.length && member.aliases[0]
         if (!alias) return
+
+        const aliasInfo = await getAliasInfo(alias)
+        if (!aliasInfo) return
 
         const url = new URL('ssb:experimental')
         const searchParams = url.searchParams
 
         searchParams.set('action', 'consume-alias')
-        searchParams.set('roomId', alias.roomId)
-        searchParams.set('alias', alias.alias)
-        searchParams.set('userId', alias.author)
-        searchParams.set('signature', alias.signature)
-        searchParams.set('multiserverAddress', alias.multiserverAddress)
+        searchParams.set('roomId', aliasInfo.roomId)
+        searchParams.set('alias', aliasInfo.alias)
+        searchParams.set('userId', parent.id)
+        searchParams.set('signature', aliasInfo.signature)
+        searchParams.set('multiserverAddress', aliasInfo.multiserverAddress)
 
         return url.href
+      },
+      aliases: (parent) => {
+        const member = roomState.members.get(parent.id)
+        return member?.aliases
       }
     },
 
