@@ -212,20 +212,15 @@ module.exports = function Resolvers (ssb) {
   }
 
   if (process.env.ROOM_ADDRESS) {
-
     const getRoomNotices = () => {
-      return new Promise((resolve, reject) => {
-        fetch(ROOM_URL + '/notice/list' + '?encoding=json')
-          .then(res => res.json())
-          .then(res => {
-            if (res.error) return resolve(null)
-            resolve(res)
-          })
-      })
+      return fetch(ROOM_URL + '/notice/list' + '?encoding=json')
+        .then(res => res.json())
+        .then(res => res.error ? null : res)
+        .catch(err => console.log('getRoomNotices error:', err)) // returns undefined
     }
 
     function updateRoomData () {
-      getRoomNotices().then(notices => roomState.notices = notices)
+      getRoomNotices().then(notices => { roomState.notices = notices })
 
       ssb.conn.connect(process.env.ROOM_ADDRESS, (err, rpc) => {
         if (err) return console.error('failed to connect to room', err)
@@ -262,17 +257,10 @@ module.exports = function Resolvers (ssb) {
   }
 
   const getAliasInfo = (alias) => {
-    return new Promise((resolve, reject) => {
-      fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
-        .then(res => res.json())
-        .then(res => {
-          if (res.error) return resolve(null)
-
-          resolve(res)
-        })
-    })
+    return fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
+      .then(res => res.json())
+      .then(res => res.error ? null : res)
   }
-
 
   return {
     Query: {
@@ -381,11 +369,11 @@ module.exports = function Resolvers (ssb) {
         const notices = parent.notices
           ?.find(notice => notice.name === 'NoticeDescription')
           ?.notices
-  
+
         return notices
           ?.find(notice => notice.language === parent.language)
           ?.content
-      },
+      }
       // TODO: other notices include:
       // - [ ] NoticeCodeOfConduct
       // - [ ] NoticeNews
