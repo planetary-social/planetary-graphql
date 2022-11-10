@@ -26,7 +26,7 @@ module.exports = {
         throw new Error('not implemented on the client')
       },
       listAliases () {
-        throw new Error('not implemented on the client') 
+        throw new Error('not implemented on the client')
       }
 
       // registerAlias (_alias, _sig, cb) {
