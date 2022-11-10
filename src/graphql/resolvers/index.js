@@ -242,7 +242,7 @@ module.exports = function Resolvers (ssb) {
     setInterval(updateRoomData, 5 * MINUTE)
   }
 
-  const getAlias = (alias) => {
+  const getAliasInfo = (alias) => {
     return new Promise((resolve, reject) => {
       fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
         .then(res => res.json())
@@ -269,13 +269,10 @@ module.exports = function Resolvers (ssb) {
       getProfiles: (_, opts) => getProfiles(opts),
 
       getProfileByAlias: async (_, opts) => { // opts = { alias }
-        const alias = await getAlias(opts.alias)
+        const alias = await getAliasInfo(opts.alias)
         if (!alias) return
 
-        return new Promise((resolve, reject) => {
-          getProfile(alias.userId)
-            .then(resolve)
-        })
+        return getProfile(alias.userId)
       }
     },
 
@@ -306,12 +303,10 @@ module.exports = function Resolvers (ssb) {
         if (!member) return
 
         // get their alias
-        const alias = member.aliases?.length
-         ? member.aliases[0]
-         : null
-         if (!alias) return
+        const alias = member.aliases?.length && member.aliases[0]
+        if (!alias) return
 
-        const aliasInfo = await getAlias(alias)
+        const aliasInfo = await getAliasInfo(alias)
         if (!aliasInfo) return
 
         const url = new URL('ssb:experimental')
