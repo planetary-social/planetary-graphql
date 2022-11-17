@@ -267,9 +267,9 @@ module.exports = function Resolvers (ssb) {
         return {
           id: process.env.ROOM_KEY,
           multiaddress: ROOM_ADDRESS,
-          name: roomState.name,
+          name: roomState?.name,
           members: Array.from(roomState.members.keys()),
-          notices: roomState.notices.pinned_notices,
+          notices: roomState?.notices?.pinned_notices,
           language: opts.language || DEFAULT_LANGUAGE_CODE
         }
       },
