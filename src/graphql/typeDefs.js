@@ -46,6 +46,7 @@ module.exports = gql`
   }
 
   type Room {
+    id: String
     multiaddress: String!
     name: String
     description: String

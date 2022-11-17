@@ -5,10 +5,7 @@ const pullFlatMap = require('pull-flatmap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 const toSSBUri = require('../../lib/to-ssb-uri')
-
-const ROOM_URL = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development'
-  ? 'https://civic.love'
-  : process.env.ROOM_URL
+const ROOM_ADDRESS = require('../../lib/get-multiserver-address')()
 
 // TODO: could probably be moved into an environment variable
 const DEFAULT_LANGUAGE_CODE = 'en-GB'
@@ -211,9 +208,9 @@ module.exports = function Resolvers (ssb) {
     members: new Map()
   }
 
-  if (process.env.ROOM_ADDRESS) {
+  if (ROOM_ADDRESS) {
     const getRoomNotices = () => {
-      return fetch(ROOM_URL + '/notice/list' + '?encoding=json')
+      return fetch(process.env.ROOM_URL + '/notice/list' + '?encoding=json')
         .then(res => res.json())
         .then(res => res.error ? null : res)
         .catch(err => console.log('getRoomNotices error:', err)) // returns undefined
@@ -222,7 +219,7 @@ module.exports = function Resolvers (ssb) {
     function updateRoomData () {
       getRoomNotices().then(notices => { roomState.notices = notices })
 
-      ssb.conn.connect(process.env.ROOM_ADDRESS, (err, rpc) => {
+      ssb.conn.connect(ROOM_ADDRESS, (err, rpc) => {
         if (err) return console.error('failed to connect to room', err)
 
         rpc.room.metadata((err, data) => {
@@ -257,7 +254,7 @@ module.exports = function Resolvers (ssb) {
   }
 
   const getAliasInfo = (alias) => {
-    return fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
+    return fetch(process.env.ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
       .then(res => res.json())
       .then(res => res.error ? null : res)
   }
@@ -265,10 +262,11 @@ module.exports = function Resolvers (ssb) {
   return {
     Query: {
       getMyRoom (_, opts) {
-        if (!process.env.ROOM_ADDRESS) return null
+        if (!ROOM_ADDRESS) return null
 
         return {
-          multiaddress: process.env.ROOM_ADDRESS,
+          id: process.env.ROOM_KEY,
+          multiaddress: ROOM_ADDRESS,
           name: roomState.name,
           members: Array.from(roomState.members.keys()),
           notices: roomState.notices.pinned_notices,
