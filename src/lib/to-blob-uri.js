@@ -1,7 +1,7 @@
 const DEFAULT_PORT = require('ssb-serve-blobs/port')
 
 // NOTE: copied from ssb-serve-blobs with tweaks
-module.exports = function idToUrl (blobId, params) {
+module.exports = function toBlobUri (blobId, params) {
   const port = (params && params.port) || DEFAULT_PORT
   const [pureBlobId, query] = blobId.split('?')
   const blobRef = encodeURIComponent(pureBlobId)
