@@ -4,7 +4,8 @@ const pullParaMap = require('pull-paramap')
 const pullFlatMap = require('pull-flatmap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
-const toSSBUri = require('../../lib/to-ssb-uri')
+
+const toBlobUri = require('../../lib/to-blob-uri')
 const ROOM_ADDRESS = require('../../lib/get-multiserver-address')()
 
 // TODO: could probably be moved into an environment variable
@@ -287,7 +288,7 @@ module.exports = function Resolvers (ssb) {
     Profile: {
       image: (parent) => {
         if (!parent.image) return
-        return toSSBUri(parent.image, { port: BLOB_PORT })
+        return toBlobUri(parent.image, { port: BLOB_PORT })
       },
       threads: (parent, opts) => getThreads(parent.id, opts),
       followers: async (parent) => {
@@ -307,25 +308,26 @@ module.exports = function Resolvers (ssb) {
         return ids?.length
       },
       ssbURI: async (parent) => {
-        const member = roomState.members.get(parent.id)
-        if (!member) return
-
-        // get their alias
-        const alias = member.aliases?.length && member.aliases[0]
-        if (!alias) return
-
-        const aliasInfo = await getAliasInfo(alias)
-        if (!aliasInfo) return
-
         const url = new URL('ssb:experimental')
         const searchParams = url.searchParams
 
         searchParams.set('action', 'consume-alias')
-        searchParams.set('roomId', aliasInfo.roomId)
-        searchParams.set('alias', aliasInfo.alias)
+        searchParams.set('roomId', process.env.ROOM_KEY)
         searchParams.set('userId', parent.id)
+        searchParams.set('multiserverAddress', ROOM_ADDRESS)
+
+        // see if we can find an alias
+        const member = roomState.members.get(parent.id)
+        if (!member) return
+
+        const alias = member.aliases?.length && member.aliases[0]
+        if (!alias) return url.href
+
+        const aliasInfo = await getAliasInfo(alias)
+        if (!aliasInfo) return url.href
+
+        searchParams.set('alias', aliasInfo.alias)
         searchParams.set('signature', aliasInfo.signature)
-        searchParams.set('multiserverAddress', aliasInfo.multiserverAddress)
 
         return url.href
       },
