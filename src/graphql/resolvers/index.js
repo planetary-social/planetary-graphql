@@ -318,7 +318,7 @@ module.exports = function Resolvers (ssb) {
 
         // see if we can find an alias
         const member = roomState.members.get(parent.id)
-        if (!member) return
+        if (!member) return url.href
 
         const alias = member.aliases?.length && member.aliases[0]
         if (!alias) return url.href
