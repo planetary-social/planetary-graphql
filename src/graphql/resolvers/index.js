@@ -373,6 +373,16 @@ module.exports = function Resolvers (ssb) {
         return notices
           ?.find(notice => notice.language === parent.language)
           ?.content
+      },
+      inviteCode: () => {
+        const url = new URL('ssb:experimental')
+        const searchParams = url.searchParams
+
+        searchParams.set('action', 'claim-http-invite')
+        searchParams.set('invite', process.env.MAGIC_TOKEN)
+        searchParams.set('postTo', process.env.ROOM_URL + '/invite/consume')
+
+        return url.href
       }
       // TODO: other notices include:
       // - [ ] NoticeCodeOfConduct
