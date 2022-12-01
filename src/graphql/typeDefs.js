@@ -51,6 +51,7 @@ module.exports = gql`
     name: String
     description: String
     members: [Profile]
+    inviteCode: String
   }
 
   type Query {
