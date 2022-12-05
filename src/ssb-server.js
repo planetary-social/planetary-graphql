@@ -2,12 +2,10 @@ const SecretStack = require('secret-stack')
 const caps = require('ssb-caps')
 const ssbKeys = require('ssb-keys')
 const { join } = require('path')
-const waterfall = require('run-waterfall')
 const pull = require('pull-stream')
 const flatMap = require('pull-flatmap')
 
-const peers = require('./peers')
-const DB_PATH = join(__dirname, '../db')
+const DB_PATH = process.env.DB_PATH || join(__dirname, '../db')
 
 function startServer (opts = {}) {
   const stack = SecretStack({ caps })
@@ -15,7 +13,7 @@ function startServer (opts = {}) {
       require('ssb-db2/core'),
       require('ssb-db2/compat/publish'),
       require('ssb-classic'),
-      // require('ssb-box'),
+      require('ssb-box'),
       // require('ssb-box2'),
       require('ssb-db2/compat/ebt'),
       // require('ssb-db2/compat/post'),
@@ -23,51 +21,33 @@ function startServer (opts = {}) {
 
       // require('ssb-db2/migrate'),
     ])
-    .use(require('ssb-about-self'))
-    .use(require('ssb-threads'))
 
     .use(require('ssb-friends'))
+
     .use(require('ssb-lan'))
     .use(require('ssb-conn'))
     .use(require('ssb-ebt'))
     .use(require('ssb-replication-scheduler'))
+    .use(require('ssb-room-client'))
+
+    .use(require('ssb-about-self'))
+    .use(require('ssb-threads'))
+
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
+
     .use(require('./ssb-room-plugin'))
 
   return stack({
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),
     path: DB_PATH,
-    friends: { hops: 6 },
+    friends: { hops: 2 },
     // lan: { legacy: false },
-    ...opts
-  })
-}
 
-function seedReplication (ssb) {
-  peers.forEach(({ name, id, host, invite }) => {
-    if (id) {
-      waterfall(
-        [
-          (cb) => ssb.friends.isFollowing({ source: ssb.id, dest: id }, cb),
-          (isFollowing, cb) => {
-            if (isFollowing) cb(null, null)
-            else ssb.friends.follow(id, { state: true }, cb)
-          },
-          (data, cb) => {
-            if (invite) ssb.invite.use(invite, cb)
-            else cb(null, null)
-          },
-          (data, cb) => {
-            if (host) ssb.conn.connect(host, cb)
-            else cb(null)
-          }
-        ],
-        (err, connection) => {
-          if (err) console.error(err)
-        }
-      )
-    }
+    // TODO - configure connections
+    // - ssb-rooms-client: https://github.com/ssbc/ssb-room-client
+    // - ssb-config: https://github.com/ssbc/ssb-config/
+    ...opts
   })
 }
 
@@ -102,12 +82,20 @@ function logging (ssb) {
     pull.through(() => console.log(' ')),
     flatMap(evs => evs),
     pull.asyncMap((ev, cb) => {
-      const feedId = ev[1].key
+      const { key: feedId, state } = ev[1]
+
+      const output = {
+        state,
+        name: feedId
+      }
+      if (output.name === ssb.room.id) {
+        output.name += ' (my room)'
+        return cb(null, output)
+      }
+
       ssb.aboutSelf.get(feedId, (err, details) => {
-        cb(null, {
-          state: ev[1].state,
-          name: err ? feedId : (details.name || feedId)
-        })
+        if (!err && details.name) output.name = details.name
+        cb(null, output)
       })
     }),
     pull.drain(({ state, name }) => {
@@ -137,7 +125,6 @@ module.exports = function SSB (opts = {}) {
   if (process.env.LOGGING) logging(ssb)
 
   ssb.lan.start()
-  seedReplication(ssb)
 
   requestAvatars(ssb)
 
