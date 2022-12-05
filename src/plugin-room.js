@@ -16,9 +16,9 @@ const dummyRemoteApi = {
   attendants: () => pull.error(new Error('not implemented on the client')),
   metadata (cb) { cb(new Error('not implemented on the client')) },
   members: () => pull.error(new Error('not implemented on the client')),
-  listAliases () { throw new Error('not implemented on the client') },
-  registerAlias (_alias, _sig, cb) { },
-  revokeAlias (_alias, cb) { }
+  listAliases (cb) { cb(new Error('not implemented on the client')) },
+  registerAlias (_alias, _sig, cb) { cb(new Error('not implemented on the client')) },
+  revokeAlias (_alias, cb) { cb(new Error('not implemented on the client')) }
 }
 
 module.exports = {
@@ -51,25 +51,13 @@ module.exports = {
     return {
       ...dummyRemoteApi,
 
-      id () {
-        return process.env.ROOM_KEY
-      },
-      address () {
-        return state.address
-      },
-      name () {
-        return state.name
-      },
-      notices () {
-        return state.notices || {}
-      },
-      members () {
-        return Array.from(state.members.keys())
-      },
-      member (id) {
-        return state.members.get(id)
-      }
-      // getMemberByAlias
+      id: () => process.env.ROOM_KEY,
+      address: () => state.address,
+      name: () => state.name,
+      notices: () => state.notices || {},
+      members: () => Array.from(state.members.keys()),
+      member: (id) => state.members.get(id)
+      // getMemberByAlias // TODO
     }
   }
 }
