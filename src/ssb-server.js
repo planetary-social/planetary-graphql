@@ -4,8 +4,24 @@ const ssbKeys = require('ssb-keys')
 const { join } = require('path')
 const pull = require('pull-stream')
 const flatMap = require('pull-flatmap')
+const incomingConnections = require('ssb-config/util/incoming-connections')
 
 const DB_PATH = process.env.DB_PATH || join(__dirname, '../db')
+const pubs = require('./pubs')
+
+module.exports = function SSB (opts = {}) {
+  const ssb = startServer(opts)
+  console.log({ feedId: ssb.id })
+
+  if (process.env.LOGGING) startLogging(ssb)
+
+  ssb.lan.start()
+
+  requestAvatars(ssb)
+  registerPubs(ssb)
+
+  return ssb
+}
 
 function startServer (opts = {}) {
   const stack = SecretStack({ caps })
@@ -28,7 +44,12 @@ function startServer (opts = {}) {
     .use(require('ssb-conn'))
     .use(require('ssb-ebt'))
     .use(require('ssb-replication-scheduler'))
-    .use(require('ssb-room-client'))
+    .use([
+      require('ssb-room-client/lib/plugin-tunnel'),
+      require('ssb-room-client/lib/plugin-room-client'),
+      // require('ssb-room-client/lib/plugin-room'),
+      require('./plugin-room') // CUSTOM
+    ])
 
     .use(require('ssb-about-self'))
     .use(require('ssb-threads'))
@@ -36,17 +57,28 @@ function startServer (opts = {}) {
     .use(require('ssb-blobs'))
     .use(require('ssb-serve-blobs'))
 
-    .use(require('./ssb-room-plugin'))
-
   return stack({
     keys: ssbKeys.loadOrCreateSync(join(DB_PATH, 'secret')),
     path: DB_PATH,
-    friends: { hops: 2 },
-    // lan: { legacy: false },
 
-    // TODO - configure connections
-    // - ssb-rooms-client: https://github.com/ssbc/ssb-room-client
-    // - ssb-config: https://github.com/ssbc/ssb-config/
+    friends: { hops: 2 },
+
+    connections: {
+      incoming: {
+        net: incomingConnections({}).net,
+        // tunnel: [{ scope: 'public', transform: 'shs' }]
+        tunnel: [{ scope: ['device', 'public', 'local'], transform: 'shs' }]
+      },
+      outgoing: {
+        net: [{ transform: 'shs' }],
+        tunnel: [{ transform: 'shs' }]
+      }
+    },
+    lan: { legacy: false },
+
+    // References:
+    //   https://github.com/ssbc/ssb-room-client
+    //   https://github.com/ssbc/ssb-config/
     ...opts
   })
 }
@@ -76,7 +108,7 @@ function requestAvatars (ssb) {
   )
 }
 
-function logging (ssb) {
+function startLogging (ssb) {
   pull(
     ssb.conn.peers(),
     pull.through(() => console.log(' ')),
@@ -89,7 +121,7 @@ function logging (ssb) {
         name: feedId
       }
       if (output.name === ssb.room.id) {
-        output.name += ' (my room)'
+        output.name = 'ROOM ' + ssb.room.id.slice(0, 10) + '...'
         return cb(null, output)
       }
 
@@ -117,16 +149,9 @@ function logging (ssb) {
   function green (string) { return '\x1b[32m' + string + '\x1b[0m' }
 }
 
-module.exports = function SSB (opts = {}) {
-  const ssb = startServer(opts)
-
-  console.log({ feedId: ssb.id })
-
-  if (process.env.LOGGING) logging(ssb)
-
-  ssb.lan.start()
-
-  requestAvatars(ssb)
-
-  return ssb
+function registerPubs (ssb) {
+  for (const pub of pubs) {
+    // ssb.conn.stage(pub.address)
+    ssb.conn.connect(pub.address)
+  }
 }

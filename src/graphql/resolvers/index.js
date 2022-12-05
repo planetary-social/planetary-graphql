@@ -211,14 +211,14 @@ module.exports = function Resolvers (ssb) {
   return {
     Query: {
       getMyRoom (_, opts) {
-        if (!ssb.room.address) return null
+        if (!ssb.room.address()) return null
 
         return {
-          multiaddress: ssb.room.address,
+          multiaddress: ssb.room.address(),
           id: process.env.ROOM_KEY,
-          name: ssb.room.name,
-          members: ssb.room.members,
-          notices: ssb.room.notices,
+          name: ssb.room.name(),
+          members: ssb.room.members(),
+          notices: ssb.room.notices(),
           language: opts.language || DEFAULT_LANGUAGE_CODE
         }
       },
@@ -262,10 +262,10 @@ module.exports = function Resolvers (ssb) {
         searchParams.set('action', 'consume-alias')
         searchParams.set('roomId', process.env.ROOM_KEY)
         searchParams.set('userId', parent.id)
-        searchParams.set('multiserverAddress', ssb.room.address)
+        searchParams.set('multiserverAddress', ssb.room.address())
 
         // see if we can find an alias
-        const member = ssb.room.getMember(parent.id)
+        const member = ssb.room.member(parent.id)
         if (!member) return url.href
 
         const alias = member.aliases?.length && member.aliases[0]
@@ -280,7 +280,7 @@ module.exports = function Resolvers (ssb) {
         return url.href
       },
       aliases: (parent) => {
-        const member = ssb.room.getMember(parent.id)
+        const member = ssb.room.member(parent.id)
         return member?.aliases
       }
     },
@@ -314,7 +314,8 @@ module.exports = function Resolvers (ssb) {
     Room: {
       members: async (parent) => getProfilesForIds(parent.members),
       description: (parent) => {
-        const notices = parent.notices
+        const notices = Object.values(parent.notices)
+          .flatMap(arr => arr)
           ?.find(notice => notice.name === 'NoticeDescription')
           ?.notices
 

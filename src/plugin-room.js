@@ -13,24 +13,24 @@ const ref = require('ssb-ref')
 const MINUTE = 60 * 1000
 
 const dummyRemoteApi = {
-  // attendants: () => pull.error(new Error('not implemented on the client')),
+  attendants: () => pull.error(new Error('not implemented on the client')),
   metadata (cb) { cb(new Error('not implemented on the client')) },
   members: () => pull.error(new Error('not implemented on the client')),
-  listAliases () { throw new Error('not implemented on the client') }
-  // registerAlias (_alias, _sig, cb) { },
-  // revokeAlias (_alias, cb) { }
+  listAliases () { throw new Error('not implemented on the client') },
+  registerAlias (_alias, _sig, cb) { },
+  revokeAlias (_alias, cb) { }
 }
 
 module.exports = {
   name: 'room',
   version: '1.0.0',
   manifest: {
-    // attendants: 'source',
+    attendants: 'source',
     metadata: 'async',
     members: 'source',
-    listAliases: 'async'
-    // registerAlias: 'async',
-    // revokeAlias: 'async',
+    listAliases: 'async',
+    registerAlias: 'async',
+    revokeAlias: 'async'
   },
   init (ssb) {
     if (!process.env.ROOM_HOST) throw new Error('missing env: ROOM_HOST')
@@ -50,22 +50,23 @@ module.exports = {
 
     return {
       ...dummyRemoteApi,
-      get id () {
+
+      id () {
         return process.env.ROOM_KEY
       },
-      get address () {
+      address () {
         return state.address
       },
-      get name () {
+      name () {
         return state.name
       },
-      get notices () {
-        return state.notices
+      notices () {
+        return state.notices || {}
       },
-      get members () {
+      members () {
         return Array.from(state.members.keys())
       },
-      getMember (id) {
+      member (id) {
         return state.members.get(id)
       }
       // getMemberByAlias
@@ -96,7 +97,7 @@ function updateRoomData (ssb, state) {
       if (processing > 0) return
       rpc.close((err) => { // eslint-disable-line
         // if (err) console.error(err)
-        console.log('disconnected from room')
+        console.log('room update finished, disconnected')
       })
     }
 
