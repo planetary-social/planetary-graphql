@@ -1,4 +1,12 @@
-# planetary-pub2
+# planetary-graphql
+
+This is a graphql server that is designed to complement a room-server.
+When properly configured it will provide a GraphQL API allowing you to query:
+- details about the room (name, notices)
+- membership of the room
+- posts made by room members
+
+The data provided by this API conforms to the [ssb-public-web-hosting-spec]
 
 ## Run locally (Development)
 
@@ -32,7 +40,7 @@ npm run dev
     cp .env.template .env
     ```
     - you will need to edit this file to make sure the details are correct`
-    - `ROOM_KEY` and `ROOM_URL` are optional, and only needed for room methods
+    - `ROOM_KEY` and `ROOM_HOST` are required for room methods
 7. install [pm2](https://www.npmjs.com/package/pm2) (process manager)
    ```bash
    npm install pm2 -g
@@ -46,12 +54,13 @@ npm run dev
    - visit e.g. `http://157.230.72.191:4000/graphql` (assume default PORT)
 
 
-#### Pair with a Room Server (optional)
+#### Pair with a Room Server
 
-If you'd like this graphql server to work with a room-server to show info about people in that room,
-you will need to set up:
-1. add this graphql peer as a member (you can get the feed `id` from `db/secret`)
-2. add the multiserver address for the room in `.env` as `ROOM_ADDRESS`
+You will need to add this peer as a member of the room (so that it can poll the room for updates).
+
+1. open the `secret` file at `DB_PATH/secret` (default: `./db/secret`)
+2. copy the `id` from this file
+3. in the room-server, add this `id` as a member
 
 ### Health checks
 
@@ -71,3 +80,8 @@ git pull origin master
 npm install
 pm2 restart all
 ```
+
+<!-- References -->
+
+ssb-public-web-hosting-spec: https://github.com/ssbc/ssb-public-web-hosting-spec
+

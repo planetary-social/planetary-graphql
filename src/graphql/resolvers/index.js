@@ -1,12 +1,10 @@
 const fetch = require('node-fetch')
 const pull = require('pull-stream')
 const pullParaMap = require('pull-paramap')
-const pullFlatMap = require('pull-flatmap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 
 const toBlobUri = require('../../lib/to-blob-uri')
-const ROOM_ADDRESS = require('../../lib/get-multiserver-address')()
 
 // TODO: could probably be moved into an environment variable
 const DEFAULT_LANGUAGE_CODE = 'en-GB'
@@ -203,58 +201,8 @@ module.exports = function Resolvers (ssb) {
       .catch(_err => cb(null, message))
   }
 
-  const roomState = {
-    name: null,
-    notices: null,
-    members: new Map()
-  }
-
-  if (ROOM_ADDRESS) {
-    const getRoomNotices = () => {
-      return fetch(process.env.ROOM_URL + '/notice/list' + '?encoding=json')
-        .then(res => res.json())
-        .then(res => res.error ? null : res)
-        .catch(err => console.log('getRoomNotices error:', err)) // returns undefined
-    }
-
-    function updateRoomData () {
-      getRoomNotices().then(notices => { roomState.notices = notices })
-
-      ssb.conn.connect(ROOM_ADDRESS, (err, rpc) => {
-        if (err) return console.error('failed to connect to room', err)
-
-        rpc.room.metadata((err, data) => {
-          if (err) return console.error(err)
-
-          roomState.name = data.name
-
-          pull(
-            rpc.room.members({}),
-            pullFlatMap(arr => arr),
-            pullParaMap((member, cb) => {
-              rpc.room.listAliases(member.id)
-                .then((aliases) => cb(null, { ...member, aliases }))
-            }, 5),
-            pull.drain(
-              member => roomState.members.set(member.id, member),
-              err => {
-                if (err) console.error('rpc.room.members error', err)
-                rpc.close((err) => {
-                  if (err) console.error('rpc.close error', err)
-                })
-              }
-            )
-          )
-        })
-      })
-    }
-
-    updateRoomData()
-    const MINUTE = 60 * 1000
-    setInterval(updateRoomData, 5 * MINUTE)
-  }
-
   const getAliasInfo = (alias) => {
+    // TODO use ssb.room state first
     return fetch(process.env.ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
       .then(res => res.json())
       .then(res => res.error ? null : res)
@@ -263,14 +211,14 @@ module.exports = function Resolvers (ssb) {
   return {
     Query: {
       getMyRoom (_, opts) {
-        if (!ROOM_ADDRESS) return null
+        if (!ssb.room.address()) return null
 
         return {
+          multiaddress: ssb.room.address(),
           id: process.env.ROOM_KEY,
-          multiaddress: ROOM_ADDRESS,
-          name: roomState?.name,
-          members: Array.from(roomState.members.keys()),
-          notices: roomState?.notices?.pinned_notices,
+          name: ssb.room.name(),
+          members: ssb.room.members(),
+          notices: ssb.room.notices(),
           language: opts.language || DEFAULT_LANGUAGE_CODE
         }
       },
@@ -314,10 +262,10 @@ module.exports = function Resolvers (ssb) {
         searchParams.set('action', 'consume-alias')
         searchParams.set('roomId', process.env.ROOM_KEY)
         searchParams.set('userId', parent.id)
-        searchParams.set('multiserverAddress', ROOM_ADDRESS)
+        searchParams.set('multiserverAddress', ssb.room.address())
 
         // see if we can find an alias
-        const member = roomState.members.get(parent.id)
+        const member = ssb.room.member(parent.id)
         if (!member) return url.href
 
         const alias = member.aliases?.length && member.aliases[0]
@@ -332,7 +280,7 @@ module.exports = function Resolvers (ssb) {
         return url.href
       },
       aliases: (parent) => {
-        const member = roomState.members.get(parent.id)
+        const member = ssb.room.member(parent.id)
         return member?.aliases
       }
     },
@@ -366,7 +314,8 @@ module.exports = function Resolvers (ssb) {
     Room: {
       members: async (parent) => getProfilesForIds(parent.members),
       description: (parent) => {
-        const notices = parent.notices
+        const notices = Object.values(parent.notices)
+          .flatMap(arr => arr)
           ?.find(notice => notice.name === 'NoticeDescription')
           ?.notices
 
