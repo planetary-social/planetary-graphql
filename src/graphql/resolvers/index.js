@@ -8,6 +8,7 @@ const toBlobUri = require('../../lib/to-blob-uri')
 
 // TODO: could probably be moved into an environment variable
 const DEFAULT_LANGUAGE_CODE = 'en-GB'
+const ROOM_URL = `https://${process.env.ROOM_HOST}`
 
 module.exports = function Resolvers (ssb) {
   const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port
@@ -203,7 +204,7 @@ module.exports = function Resolvers (ssb) {
 
   const getAliasInfo = (alias) => {
     // TODO use ssb.room state first
-    return fetch(process.env.ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
+    return fetch(ROOM_URL + '/alias' + `/${alias}` + '?encoding=json')
       .then(res => res.json())
       .then(res => res.error ? null : res)
   }
@@ -329,7 +330,7 @@ module.exports = function Resolvers (ssb) {
 
         searchParams.set('action', 'claim-http-invite')
         searchParams.set('invite', process.env.MAGIC_TOKEN)
-        searchParams.set('postTo', process.env.ROOM_URL + '/invite/consume')
+        searchParams.set('postTo', ROOM_URL + '/invite/consume')
 
         return url.href
       }
