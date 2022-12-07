@@ -8,7 +8,7 @@ const toBlobUri = require('../../lib/to-blob-uri')
 
 // TODO: could probably be moved into an environment variable
 const DEFAULT_LANGUAGE_CODE = 'en-GB'
-const ROOM_URL = `https://${process.env.ROOM_HOST}`
+const ROOM_URL = process.env.ROOM_URL
 
 module.exports = function Resolvers (ssb) {
   const BLOB_PORT = ssb.config.serveBlobs && ssb.config.serveBlobs.port

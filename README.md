@@ -40,7 +40,11 @@ npm run dev
     cp .env.template .env
     ```
     - you will need to edit this file to make sure the details are correct`
-    - `ROOM_KEY` and `ROOM_HOST` are required for room methods
+        - these environment variables are required for room related API:
+            - `ROOM_KEY` - ssb id of the room
+            - `ROOM_HOST` - the hostname of the room
+            - `ROOM_URL` - the URL the room is being served at. This should be an absolute URL. E.g. `https://localhost:3000` or `https://civic.love`
+            - `MAGIC_TOKEN` - the token used to bypass invites for the `go-ssb-room` server
 7. install [pm2](https://www.npmjs.com/package/pm2) (process manager)
    ```bash
    npm install pm2 -g
