@@ -168,19 +168,15 @@ function setupBootstrapPubs (ssb) {
   // TODO 2022-12-14 (mix) see if Zach can get the graphql server talking via the room
 
   autoConnectPubsIfNeeded()
-  setInterval(autoConnectPubsIfNeeded, 10000)
+  setInterval(autoConnectPubsIfNeeded, 30 * 1000) // every 30 seconds
 
   function autoConnectPubsIfNeeded () {
-    console.log('here')
     const count = ssb.conn.query().peersConnected().length
-    console.log('here', count)
     if (count < 4) connectRandomPub()
-    else console.log('is chill', count)
   }
 
   function connectRandomPub () {
     const pub = pubs[Math.floor(pubs.length * Math.random())]
-    console.log('auto-connecting', pub)
 
     ssb.conn.connect(pub.address, (err, rpc) => {
       if (err) connectRandomPub()
