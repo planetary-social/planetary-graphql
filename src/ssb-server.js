@@ -13,7 +13,7 @@ module.exports = function SSB (opts = {}) {
   const ssb = startServer(opts)
   console.log({ feedId: ssb.id })
 
-  if (process.env.LOGGING) startLogging(ssb)
+  if (process.env.LOGGING === 'true') startLogging(ssb)
 
   ssb.lan.start()
 

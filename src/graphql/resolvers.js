@@ -4,7 +4,7 @@ const pullParaMap = require('pull-paramap')
 const { where, type, descending, toPullStream, votesFor } = require('ssb-db2/operators')
 const { promisify: p } = require('util')
 
-const toBlobUri = require('../../lib/to-blob-uri')
+const toBlobUri = require('../lib/to-blob-uri')
 
 // TODO: could probably be moved into an environment variable
 const DEFAULT_LANGUAGE_CODE = 'en-GB'
