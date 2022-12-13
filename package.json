@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "pm2 start pm2.config.js",
+    "stop": "pm2 stop pm2.config.js",
     "dev": "NODE_ENV=development node index.js",
     "test": "npm run test:raw && npm run lint",
     "test:raw": "NODE_ENV=test tape test/**/*.test.js | tap-arc",
@@ -16,7 +17,7 @@
     "url": "git+https://github.com/planetary-social/planetary-pub2.git"
   },
   "author": "Cherese Eriepa",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/planetary-social/planetary-pub2/issues"
   },
@@ -27,7 +28,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.1",
-    "graphql": "^15.0.0",
+    "graphql": "^15.8.0",
     "pull-flatmap": "^0.0.1",
     "pull-paramap": "^1.2.2",
     "pull-stream": "^3.6.14",
@@ -50,7 +51,6 @@
     "@apollo/client": "^3.7.1",
     "apollo-server-integration-testing": "^3.0.0",
     "esm": "^3.2.25",
-    "graphql": "^15.8.0",
     "husky": "^7.0.4",
     "standard": "^17.0.0",
     "tap-arc": "^0.3.5",

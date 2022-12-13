@@ -99,6 +99,8 @@ function updateRoomData (ssb, state) {
       rpc.room.members({}),
       pullFlatMap(arr => arr),
 
+      pull.filter(member => member.id !== ssb.id),
+
       /* Follow members (privately) */
       pullParaMap((member, cb) => {
         ssb.friends.isFollowing({ source: ssb.id, dest: member.id }, (err, isFollowing) => {

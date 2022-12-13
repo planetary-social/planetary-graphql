@@ -52,11 +52,19 @@ npm run dev
    ```
 8. start the process!
    ```bash
-   pm2 start index.js
+   npm start
    ```
 9. check the server is live using your browser
    - visit e.g. `http://157.230.72.191:4000/graphql` (assume default PORT)
 
+
+Other useful commands:
+
+```bash
+npm run stop          // close the pm2 process does
+pm2 restart graphql   // restart the graphql process
+pm2 monit             // detailed monitoring for pm2 processes
+```
 
 #### Pair with a Room Server
 
