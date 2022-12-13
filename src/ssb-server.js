@@ -5,6 +5,7 @@ const { join } = require('path')
 const pull = require('pull-stream')
 const flatMap = require('pull-flatmap')
 const incomingConnections = require('ssb-config/util/incoming-connections')
+const ref = require('ssb-ref')
 
 const DB_PATH = process.env.DB_PATH || join(__dirname, '../db')
 const pubs = require('./pubs')
@@ -18,7 +19,7 @@ module.exports = function SSB (opts = {}) {
   ssb.lan.start()
 
   requestAvatars(ssb)
-  registerPubs(ssb)
+  setupBootstrapPubs(ssb)
 
   return ssb
 }
@@ -149,9 +150,36 @@ function startLogging (ssb) {
   function green (string) { return '\x1b[32m' + string + '\x1b[0m' }
 }
 
-function registerPubs (ssb) {
+function setupBootstrapPubs (ssb) {
   for (const pub of pubs) {
-    // ssb.conn.stage(pub.address)
-    ssb.conn.connect(pub.address)
+    ssb.conn.stage(pub.address, {
+      key: ref.getKeyFromAddress(pub.address),
+      type: 'pub'
+    })
+  }
+
+  // NOTE - initially it is not enough to just "stage" pubs for connection,
+  // because the default ssb-conn/scheduler checks if the pub is in "hop range"
+  // which they are not initially (as no-one is UNLESS we follow pubs, which we don't
+  // want - ideally we only follow room members)
+  //
+  // TODO 2022-12-14 (mix) watch to see if this performs well
+  //
+  // TODO 2022-12-14 (mix) see if Zach can get the graphql server talking via the room
+
+  autoConnectPubsIfNeeded()
+  setInterval(autoConnectPubsIfNeeded, 30 * 1000) // every 30 seconds
+
+  function autoConnectPubsIfNeeded () {
+    const count = ssb.conn.query().peersConnected().length
+    if (count < 4) connectRandomPub()
+  }
+
+  function connectRandomPub () {
+    const pub = pubs[Math.floor(pubs.length * Math.random())]
+
+    ssb.conn.connect(pub.address, (err, rpc) => {
+      if (err) connectRandomPub()
+    })
   }
 }
