@@ -65,9 +65,9 @@ function startServer (opts = {}) {
 
     connections: {
       incoming: {
-        net: incomingConnections({}).net,
-        // tunnel: [{ scope: 'public', transform: 'shs' }]
-        tunnel: [{ scope: ['device', 'public', 'local'], transform: 'shs' }]
+        // net: incomingConnections({}).net,
+        tunnel: [{ scope: 'public', transform: 'shs' }]
+        // tunnel: [{ scope: ['device', 'public', 'local'], transform: 'shs' }]
       },
       outgoing: {
         net: [{ transform: 'shs' }],
