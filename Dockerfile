@@ -13,4 +13,6 @@ COPY . .
 EXPOSE  4000
 EXPOSE 26835
 
-CMD ["npm", "start", "index.js"]
+RUN npm install pm2 -g
+
+CMD ["pm2-runtime", "index.js"]
