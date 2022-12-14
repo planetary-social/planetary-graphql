@@ -64,7 +64,7 @@ module.exports = {
 
 function updateRoomData (ssb, state) {
   /* Room Notices */
-  fetch('https://' + process.env.ROOM_HOST + '/notice/list' + '?encoding=json')
+  fetch(process.env.ROOM_URL + '/notice/list' + '?encoding=json')
     .then(res => res.json())
     .then(notices => {
       if (notices.error) return

@@ -51,7 +51,7 @@ module.exports = gql`
     name: String
     description: String
     members: [Profile]
-    inviteCode: String
+    url: String
   }
 
   type Query {
@@ -71,5 +71,12 @@ module.exports = gql`
     (requires environment variable ROOM_ADDRESS to be present)
     """
     getMyRoom(language: String): Room
+
+
+    """
+    Sends a POST request to the rooms /create-invite endpoint and gets back
+    an invite code in json
+    """
+    getInviteCode: String
   }
 `
