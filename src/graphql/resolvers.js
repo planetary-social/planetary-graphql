@@ -209,6 +209,21 @@ module.exports = function Resolvers (ssb) {
       .then(res => res.error ? null : res)
   }
 
+  function getRoomInviteCode () {
+    const url = ROOM_URL + '/create-invite'
+    return fetch(url,
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+      .then(res => res.json())
+      .then(res => res.error ? null : res.url)
+  }
+
   return {
     Query: {
       getMyRoom (_, opts) {
@@ -231,9 +246,9 @@ module.exports = function Resolvers (ssb) {
         if (!alias) return
 
         return getProfile(alias.userId)
-      }
+      },
+      getInviteCode: () => getRoomInviteCode()
     },
-
     Profile: {
       image: (parent) => {
         if (!parent.image) return
@@ -313,6 +328,7 @@ module.exports = function Resolvers (ssb) {
     },
 
     Room: {
+      url: () => ROOM_URL,
       members: async (parent) => getProfilesForIds(parent.members),
       description: (parent) => {
         const notices = Object.values(parent.notices)
@@ -324,16 +340,6 @@ module.exports = function Resolvers (ssb) {
           ?.find(notice => notice.language === parent.language)
           ?.content
       },
-      inviteCode: () => {
-        const url = new URL('ssb:experimental')
-        const searchParams = url.searchParams
-
-        searchParams.set('action', 'claim-http-invite')
-        searchParams.set('invite', process.env.MAGIC_TOKEN)
-        searchParams.set('postTo', ROOM_URL + '/invite/consume')
-
-        return url.href
-      }
       // TODO: other notices include:
       // - [ ] NoticeCodeOfConduct
       // - [ ] NoticeNews
