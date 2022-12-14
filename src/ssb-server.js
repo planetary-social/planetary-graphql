@@ -9,6 +9,10 @@ const ref = require('ssb-ref')
 
 const DB_PATH = process.env.DB_PATH || join(__dirname, '../db')
 const pubs = require('./pubs')
+  .map(pub => {
+    pub.id = ref.getKeyFromAddress(pub.address)
+    return pub
+  })
 
 module.exports = function SSB (opts = {}) {
   const ssb = startServer(opts)
@@ -128,6 +132,10 @@ function startLogging (ssb) {
 
       ssb.aboutSelf.get(feedId, (err, details) => {
         if (!err && details.name) output.name = details.name
+        else {
+          const pub = pubs.find(pub => pub.id === feedId)
+          if (pub) output.name = pub.name
+        }
         cb(null, output)
       })
     }),
