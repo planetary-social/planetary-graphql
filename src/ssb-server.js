@@ -4,7 +4,7 @@ const ssbKeys = require('ssb-keys')
 const { join } = require('path')
 const pull = require('pull-stream')
 const flatMap = require('pull-flatmap')
-const incomingConnections = require('ssb-config/util/incoming-connections')
+// const incomingConnections = require('ssb-config/util/incoming-connections')
 const ref = require('ssb-ref')
 
 const DB_PATH = process.env.DB_PATH || join(__dirname, '../db')
@@ -70,7 +70,7 @@ function startServer (opts = {}) {
 
     connections: {
       incoming: {
-        net: incomingConnections({}).net,
+        // net: incomingConnections({}).net,
         // tunnel: [{ scope: 'public', transform: 'shs' }]
         tunnel: [{ scope: ['device', 'public', 'local'], transform: 'shs' }]
       },
