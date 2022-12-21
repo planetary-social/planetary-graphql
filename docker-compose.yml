@@ -1,0 +1,20 @@
+---
+version: '2.2'
+services:
+  graphql:
+    image: zachboyofdestiny/planetary-graphql:1.0
+    environment:
+      - DB_PATH=/tmp/planetary-graphql
+      - ROOM_HOST=$GO_SSB_ROOM_DOMAIN
+      - ROOM_URL=https://$GO_SSB_ROOM_DOMAIN
+      - ROOM_PORT=8008
+      - ROOM_KEY= $SSBKEY_OF_GO_SSB_ROOM
+      - MAGIC_TOKEN=3vdWyLACyrKtzdveenWq9wbbPXh1Aq-Ds7VcUMX6kE27mW9K4k4a3tPFjE_Cjz_9rYA=
+      - LOGGING=false
+      - BLOBS_URL=http://0.0.0.0:26835
+    ports:
+      - "4000:4000" # the graphql endpoint
+      - "0.0.0.0:26835:26835" # the blob server
+    restart: "on-failure"
+    volumes:
+      - ./db:/tmp/planetary-graphql
