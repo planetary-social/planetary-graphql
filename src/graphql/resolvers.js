@@ -175,6 +175,43 @@ module.exports = function Resolvers (ssb) {
   }
 
   /**
+   * Gets all the public threads that room members have posted or replied to
+   * @param {object} opts - optional parameters
+   * @param {int} [opts.limit=10] - max amount of threads to return
+   * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
+   */
+  const getPublicThreads = (opts) => {
+    const { threadMaxSize, limit = 10 } = opts
+    const members = ssb.room.members()
+  
+    return new Promise((resolve, reject) => {
+      pull(
+        ssb.threads.public({ threadMaxSize, allowlist: ['post'], following: true }),
+        // hacky! Only threads that contain a message from a member of the room
+        // this is because the room is following some users who are not members
+        pull.filter(thread => {
+          return thread.messages.some(message => {
+            return members.includes(message.value?.author)
+          })
+        }),
+        pull.take(limit),
+        pull.collect((err, threads) => {
+          if (err) return reject(err)
+
+          const res = threads.map(({ messages }) => {
+            return {
+              id: messages[0].key,
+              messages
+            }
+          })
+
+          resolve(res)
+        })
+      )
+    })
+  }
+
+  /**
    * Takes a messages and maps it either to a Comment or "empty" Comment depending on
    * whether the author has opted into publicWebHosting.
    * @param {object} msg - a post message in kv format
@@ -247,7 +284,13 @@ module.exports = function Resolvers (ssb) {
 
         return getProfile(alias.userId)
       },
-      getInviteCode: () => getRoomInviteCode()
+      getInviteCode: () => getRoomInviteCode(),
+
+      getThreads: (_, opts = {}) => {
+        return opts.id
+          ? getThreads(opts.id, opts)
+          : getPublicThreads(opts)
+      }
     },
     Profile: {
       image: (parent) => {
@@ -339,7 +382,7 @@ module.exports = function Resolvers (ssb) {
         return notices
           ?.find(notice => notice.language === parent.language)
           ?.content
-      },
+      }
       // TODO: other notices include:
       // - [ ] NoticeCodeOfConduct
       // - [ ] NoticeNews
