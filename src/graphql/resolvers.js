@@ -182,13 +182,16 @@ module.exports = function Resolvers (ssb) {
    */
   const getPublicThreads = (opts) => {
     const { threadMaxSize, limit = 10 } = opts
+    
     const members = ssb.room.members()
-  
+      
     return new Promise((resolve, reject) => {
       pull(
         ssb.threads.public({ threadMaxSize, allowlist: ['post'], following: true }),
-        // hacky! Only threads that contain a message from a member of the room
-        // this is because the room is following some users who are not members
+        // this could be more optimised
+        // it handles cases where in early development stages, the graphql servers were following 
+        // some ssb users when syncing. This has been removed, but some databases (like mine)
+        // still have those users, so it will mess with the display a little 
         pull.filter(thread => {
           return thread.messages.some(message => {
             return members.includes(message.value?.author)
