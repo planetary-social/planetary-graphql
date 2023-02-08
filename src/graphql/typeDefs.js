@@ -62,9 +62,15 @@ module.exports = gql`
     gets the peers who have opted into publicWebHosting
     """
     getProfiles(limit: Int): [Profile]
-    
 
+  
     # getThread(id: ID!, preview: Boolean): Thread
+
+    """
+    gets the threads by a member when an id is provided,
+    or all public threads by members up to a limit (default limit is 10)
+    """
+    getThreads(id: ID, limit: Int, maxThreadSize: Int): [Thread]
 
     """
     get a detail on the room you paired with this api server
