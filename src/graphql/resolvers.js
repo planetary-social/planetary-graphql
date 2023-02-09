@@ -153,10 +153,30 @@ module.exports = function Resolvers (ssb) {
    * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
    */
   const getThreads = (feedId, opts) => {
-    const { threadMaxSize, limit = 10 } = opts
+    const { threadMaxSize, limit = 10, cursor } = opts
+
+    var keepSkipping = Boolean(cursor)
+
+    const isByMember = (thread) => thread.messages.some(message => message?.value.author === feedId)
+    const handleSkip = (thread) => {
+      const id = thread.messages[0].key
+      if (id === cursor) keepSkipping = false
+      return false
+    }
+
     return new Promise((resolve, reject) => {
       pull(
         ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
+
+        pull.filter(thread => {
+          if (!isByMember(thread)) return false
+
+          // only skip when need to
+          // this is a naive approach to pagination
+          // by skipping items when there is a cursor
+          if (!keepSkipping) return true
+          return handleSkip(thread)
+        }),
         pull.take(limit),
         pull.collect((err, threads) => {
           if (err) return reject(err)
@@ -181,9 +201,17 @@ module.exports = function Resolvers (ssb) {
    * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
    */
   const getPublicThreads = (opts) => {
-    const { threadMaxSize, limit = 10 } = opts
+    const { threadMaxSize, limit = 10, cursor } = opts
     
     const members = ssb.room.members()
+    var keepSkipping = Boolean(cursor)
+
+    const isByMember = (thread) => thread.messages.some(message => members.includes(message?.value.author))
+    const handleSkip = (thread) => {
+      const id = thread.messages[0].key
+      if (id === cursor) keepSkipping = false
+      return false
+    }
       
     return new Promise((resolve, reject) => {
       pull(
@@ -193,9 +221,13 @@ module.exports = function Resolvers (ssb) {
         // some ssb users when syncing. This has been removed, but some databases (like mine)
         // still have those users, so it will mess with the display a little 
         pull.filter(thread => {
-          return thread.messages.some(message => {
-            return members.includes(message.value?.author)
-          })
+          if (!isByMember(thread)) return false
+
+          // only skip when need to
+          // this is a naive approach to pagination
+          // by skipping items when there is a cursor
+          if (!keepSkipping) return true
+          return handleSkip(thread)
         }),
         pull.take(limit),
         pull.collect((err, threads) => {
