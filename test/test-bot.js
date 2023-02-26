@@ -32,9 +32,9 @@ function SSB (opts = {}) {
       // require('ssb-db2/migrate'),
     ])
     .use(require('ssb-about-self'))
-    .use(require('ssb-threads'))
 
     .use(require('ssb-friends'))
+    .use(require('ssb-threads'))
     // .use(require('ssb-ebt'))
     // .use(require('ssb-conn'))
     // .use(require('ssb-replication-scheduler'))

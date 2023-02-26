@@ -60,5 +60,10 @@
   "resolutions": {
     "apollo-server-integration-testing/apollo-server-core": "^3.6.1",
     "apollo-server-integration-testing/apollo-server-express": "^3.6.1"
+  },
+  "standard": {
+    "ignore": [
+      "print-key.js"
+    ]
   }
 }

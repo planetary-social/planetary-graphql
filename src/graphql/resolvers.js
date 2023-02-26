@@ -152,15 +152,21 @@ module.exports = function Resolvers (ssb) {
    * @param {int} [opts.limit=10] - max amount of threads to return
    * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
    */
-  const getThreads = (feedId, opts) => {
-    const { threadMaxSize, limit = 10, cursor } = opts
+  const getThreadsByFeedId = (feedId, opts) => {
+    const { threadMaxSize, limit = 10, cursor } = (opts || {})
 
-    var keepSkipping = Boolean(cursor)
+    let keepSkipping = Boolean(cursor)
 
-    const isByMember = (thread) => thread.messages.some(message => message?.value.author === feedId)
+    const hasMessageInThread = (thread) => thread.messages.some(message => message?.value.author === feedId)
+
+    // TODO - add pagination to ssb-threads
+    // since ssb-threads doesnt yet support pagination, this is a work around
+    // this could be more optimised
     const handleSkip = (thread) => {
       const id = thread.messages[0].key
       if (id === cursor) keepSkipping = false
+
+      // found cursor! filter it out, but afterwards we're done with skipping
       return false
     }
 
@@ -169,12 +175,13 @@ module.exports = function Resolvers (ssb) {
         ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
 
         pull.filter(thread => {
-          if (!isByMember(thread)) return false
+          if (!hasMessageInThread(thread)) return false
 
           // only skip when need to
           // this is a naive approach to pagination
           // by skipping items when there is a cursor
           if (!keepSkipping) return true
+
           return handleSkip(thread)
         }),
         pull.take(limit),
@@ -200,28 +207,33 @@ module.exports = function Resolvers (ssb) {
    * @param {int} [opts.limit=10] - max amount of threads to return
    * @param {int} opts.threadMaxSize - max amount of messages in each thread to return
    */
-  const getPublicThreads = (opts) => {
-    const { threadMaxSize, limit = 10, cursor } = opts
-    
-    const members = ssb.room.members()
-    var keepSkipping = Boolean(cursor)
+  const getThreadsByMembers = (opts) => {
+    const { threadMaxSize, limit = 10, cursor } = (opts || {})
 
-    const isByMember = (thread) => thread.messages.some(message => members.includes(message?.value.author))
+    const members = ssb.room.members()
+    let keepSkipping = Boolean(cursor)
+
+    const hasMessageInThread = (thread) => thread.messages.some(message => members.includes(message?.value.author))
+
+    // TODO - add pagination to ssb-threads
+    // since ssb-threads doesnt yet support pagination, this is a work around
+    // this could be more optimised
+    // it handles cases where in early development stages, the graphql servers were following
+    // some ssb users when syncing. This has been removed, but some databases (like mine)
+    // still have those users, so it will mess with the display a little
     const handleSkip = (thread) => {
       const id = thread.messages[0].key
       if (id === cursor) keepSkipping = false
+
+      // found cursor! filter it out, but afterwards we're done with skipping
       return false
     }
-      
+
     return new Promise((resolve, reject) => {
       pull(
         ssb.threads.public({ threadMaxSize, allowlist: ['post'], following: true }),
-        // this could be more optimised
-        // it handles cases where in early development stages, the graphql servers were following 
-        // some ssb users when syncing. This has been removed, but some databases (like mine)
-        // still have those users, so it will mess with the display a little 
         pull.filter(thread => {
-          if (!isByMember(thread)) return false
+          if (!hasMessageInThread(thread)) return false
 
           // only skip when need to
           // this is a naive approach to pagination
@@ -287,7 +299,7 @@ module.exports = function Resolvers (ssb) {
       {
         method: 'POST',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json'
         }
       }
@@ -322,9 +334,9 @@ module.exports = function Resolvers (ssb) {
       getInviteCode: () => getRoomInviteCode(),
 
       getThreads: (_, opts = {}) => {
-        return opts.id
-          ? getThreads(opts.id, opts)
-          : getPublicThreads(opts)
+        return opts.feedId
+          ? getThreadsByFeedId(opts.feedId, opts)
+          : getThreadsByMembers(opts)
       }
     },
     Profile: {
@@ -332,7 +344,7 @@ module.exports = function Resolvers (ssb) {
         if (!parent.image) return
         return toBlobUri(parent.image, { port: BLOB_PORT })
       },
-      threads: (parent, opts) => getThreads(parent.id, opts),
+      threads: (parent, opts) => getThreadsByFeedId(parent.id, opts),
       followers: async (parent) => {
         const ids = await getFollowersIds(parent.id)
         return getProfilesForIds(ids)

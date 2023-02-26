@@ -70,7 +70,7 @@ module.exports = gql`
     gets the threads by a member when an id is provided,
     or all public threads by members up to a limit (default limit is 10)
     """
-    getThreads(id: ID, limit: Int, maxThreadSize: Int, cursor: String): [Thread]
+    getThreads(feedId: ID, limit: Int, maxThreadSize: Int, cursor: String): [Thread]
 
     """
     get a detail on the room you paired with this api server
