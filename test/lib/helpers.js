@@ -15,6 +15,7 @@ function CreateUser (ssb) {
 
     // publish the users about message
     await p(ssb.db.create)({ content, keys })
+    await sleep(200)
 
     return {
       id: keys.id,
@@ -59,7 +60,48 @@ function GetProfile (apollo, t, QUERY) {
   }
 }
 
+const GET_THREADS = gql`
+  query($feedId: ID, $cursor: String, $limit: Int) {
+    getThreads(feedId: $feedId, limit: $limit, cursor: $cursor) {
+      id
+      messages {
+        id
+        text
+        author {
+          id
+        }
+      }
+    }
+  }
+`
+
+function GetThreads (apollo, t) {
+  return async function getThreads (opts = { limit: 10 }) {
+    const res = await apollo.query(
+      GET_THREADS,
+      {
+        variables: {
+          ...opts
+        }
+      }
+    )
+
+    t.error(res.errors, 'gets threads without error')
+    if (res.errors) console.log(JSON.stringify(res.errors, null, 2))
+
+    return res.data.getThreads
+  }
+}
+
+function sleep (ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
 module.exports = {
   CreateUser,
-  GetProfile
+  GetProfile,
+  GetThreads,
+  sleep
 }

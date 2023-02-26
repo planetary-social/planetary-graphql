@@ -1,3 +1,4 @@
+/* eslint-disable */
 if (!process.env.KEY_LOCATION) return
 
 var ssbKeys = require("ssb-keys");
