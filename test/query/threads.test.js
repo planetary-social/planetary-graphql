@@ -3,7 +3,7 @@ const { promisify: p } = require('util')
 const gql = require('graphql-tag')
 
 const TestBot = require('../test-bot')
-const { CreateUser, GetProfile, GetThreads, sleep } = require('../lib/helpers')
+const { CreateUser, GetProfile, GetThreads, PostMessage, sleep } = require('../lib/helpers')
 
 const GET_PROFILE = gql`
 query getProfile ($id: ID!) {
@@ -11,36 +11,37 @@ query getProfile ($id: ID!) {
     id
     threads {
       id
-      messages {
+      text
+      author {
+        id
+      }
+      root {
+        id
+      }
+      replies {
         id
         text
         author {
           id
+        }
+        root {
+          id
+        }
+        replies {
+          id
+          text
+          root {
+            id
+          }
+          author {
+            id
+          }
         }
       }
     }
   }
 }
 `
-
-const PostMessage = (ssb) => {
-  return async function postMessage (content = {}, user) {
-    const res = await p(ssb.db.create)({
-      content: {
-        type: 'post',
-        ...content
-      },
-      keys: user.keys
-    })
-
-    // hack: we need this here because messages
-    // post too quickly, resulting in threads being out of order
-    await sleep(500)
-
-    return res.key
-  }
-}
-
 test('threads', async t => {
   t.plan(2)
   const { ssb, apollo } = await TestBot()
@@ -70,37 +71,76 @@ test('threads', async t => {
     root: msgId
   }, carol)
 
+  // reply to a reply
+  const msgId4 = await postMessage({
+    text: ':D',
+    root: msgId2
+  }, alice)
+
   // get the threads
   const profile = await getProfile(alice.id)
 
+  const expected = {
+    id: alice.id,
+    threads: [
+      {
+        id: msgId2,
+        text: 'Kia ora!',
+        author: {
+          id: bob.id
+        },
+        root: {
+          id: msgId
+        },
+        replies: [
+          {
+            id: msgId4,
+            text: ':D',
+            author: { id: alice.id },
+            root: { id: msgId2 },
+            replies: []
+          }
+        ]
+      },
+      {
+        id: msgId,
+        text: 'Say hi!',
+        author: { id: alice.id },
+        root: null,
+        replies: [
+          {
+            id: msgId2,
+            text: 'Kia ora!',
+            author: { id: bob.id },
+            root: { id: msgId },
+            replies: [
+              // NOT showing this for some reason
+              {
+                id: msgId4,
+                text: ':D',
+                root: {
+                  id: msgId2
+                },
+                author: { id: alice.id }
+              }
+            ]
+          },
+          { // publicWebHosting for this author is false
+            // meaning it returns an empty message instead
+            id: null,
+            author: null,
+            text: null,
+            root: null, // TODO?
+            replies: []
+          }
+        ]
+      }
+    ]
+  }
+
   t.deepEquals(
     profile,
-    {
-      id: alice.id,
-      threads: [
-        {
-          id: msgId,
-          messages: [
-            {
-              id: msgId,
-              author: { id: alice.id },
-              text: 'Say hi!'
-            },
-            {
-              id: msgId2,
-              author: { id: bob.id },
-              text: 'Kia ora!'
-            },
-            { // publicWebHosting for this author is false
-              // meaning it returns an empty message instead
-              id: null,
-              author: null,
-              text: null
-            }
-          ]
-        }
-      ]
-    },
+    expected,
     'returns the correct threads in the message'
   )
 

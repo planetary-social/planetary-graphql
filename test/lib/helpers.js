@@ -2,6 +2,12 @@ const ssbKeys = require('ssb-keys')
 const { promisify: p } = require('util')
 const gql = require('graphql-tag')
 
+function sleep (ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
 function CreateUser (ssb) {
   return async function createUser (name, aboutOpts = {}) {
     const keys = ssbKeys.generate()
@@ -23,6 +29,24 @@ function CreateUser (ssb) {
       ...aboutOpts,
       keys
     }
+  }
+}
+
+const PostMessage = (ssb) => {
+  return async function postMessage (content = {}, user) {
+    const res = await p(ssb.db.create)({
+      content: {
+        type: 'post',
+        ...content
+      },
+      keys: user.keys
+    })
+
+    // hack: we need this here because messages
+    // post too quickly, resulting in threads being out of order
+    await sleep(500)
+
+    return res.key
   }
 }
 
@@ -64,7 +88,14 @@ const GET_THREADS = gql`
   query($feedId: ID, $cursor: String, $limit: Int) {
     getThreads(feedId: $feedId, limit: $limit, cursor: $cursor) {
       id
-      messages {
+      text
+      root {
+        id
+      }
+      author {
+        id
+      }
+      replies {
         id
         text
         author {
@@ -93,15 +124,54 @@ function GetThreads (apollo, t) {
   }
 }
 
-function sleep (ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
+const GET_THREAD = gql`
+  query($msgId: ID!) {
+    getThread(msgId: $msgId) {
+      id
+      text
+      root {
+        id
+      }
+      author {
+        id
+      }
+      replies {
+        id
+        text
+        root {
+          id
+        }
+        author {
+          id
+        }
+      }
+    }
+  }
+`
+
+function GetThread (apollo, t) {
+  return async function getThread (msgId) {
+    const res = await apollo.query(
+      GET_THREAD,
+      {
+        variables: {
+          msgId
+        }
+      }
+    )
+
+    t.error(res.errors, 'gets a thread without error')
+    if (res.errors) console.log(JSON.stringify(res.errors, null, 2))
+
+    return res.data.getThread
+  }
 }
 
 module.exports = {
   CreateUser,
   GetProfile,
   GetThreads,
+  PostMessage,
+  GetThread,
   sleep
 }
