@@ -145,29 +145,31 @@ module.exports = function Resolvers (ssb) {
     })
   }
 
-  const getThread = (msgId) => {
+  function mapMessages (thread) {
+    const root = thread.messages[0]
+
+    return {
+      id: root.key,
+      ...root.value.content,
+      author: root.value.author,
+
+      // return all but the first item
+      replies: thread.messages.splice(1)
+    }
+  }
+
+  const getThread = (msgId, opts) => {
+    const { threadMaxSize = 20 } = (opts || {})
+
     return new Promise((resolve, reject) => {
       pull(
-        ssb.threads.thread({
-          root: msgId,
-          reverse: true,
-          threadMaxSize: 20
-        }),
+        ssb.threads.thread({ root: msgId, reverse: true, threadMaxSize }),
         pull.take(1), // NOTE: takes one in the collect, so this just prevents the next step from doing more than it needs to
         pull.collect((err, [thread]) => {
           if (err) return reject(err)
           if (!thread || !thread.messages || !thread.messages?.length) return resolve(null)
 
-          const root = thread.messages[0]
-          // check if there is a root message?
-          resolve({
-            id: root.key,
-            ...root.value.content,
-            author: root.value.author,
-
-            // return all but the first item
-            replies: thread.messages.splice(1)
-          })
+          resolve(mapMessages(thread))
         })
       )
     })
@@ -216,20 +218,7 @@ module.exports = function Resolvers (ssb) {
         pull.collect((err, threads) => {
           if (err) return reject(err)
 
-          const res = threads.map(({ messages }) => {
-            const root = messages[0]
-
-            return {
-              id: root.key,
-              ...root.value.content,
-              author: root.value.author,
-
-              // return all but the first item
-              replies: messages.splice(1)
-            }
-          })
-
-          resolve(res)
+          resolve(threads.map(mapMessages))
         })
       )
     })
@@ -279,14 +268,7 @@ module.exports = function Resolvers (ssb) {
         pull.collect((err, threads) => {
           if (err) return reject(err)
 
-          const res = threads.map(({ messages }) => {
-            return {
-              id: messages[0].key,
-              messages
-            }
-          })
-
-          resolve(res)
+          resolve(threads.map(mapMessages))
         })
       )
     })
@@ -303,7 +285,7 @@ module.exports = function Resolvers (ssb) {
       id: null,
       author: null,
       timestamp: msg.value.timestamp, // asserted publish time
-      root: null,
+      root: msg.value.content.root,
       text: null
     }
 
@@ -368,7 +350,7 @@ module.exports = function Resolvers (ssb) {
         return getProfile(alias.userId)
       },
       getInviteCode: () => getRoomInviteCode(),
-      getThread: (_, opts) => getThread(opts.msgId),
+      getThread: (_, opts) => getThread(opts.msgId, { threadMaxSize: opts.threadMaxSize }),
       getThreads: (_, opts = {}) => {
         return opts.feedId
           ? getThreadsByFeedId(opts.feedId, opts)

@@ -69,7 +69,7 @@ module.exports = gql`
     """
     gets a single thread by a messageId
     """
-    getThread(msgId: ID!): Thread
+    getThread(msgId: ID!, maxThreadSize: Int): Thread
 
     """
     gets the threads by a member when an id is provided,

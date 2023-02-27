@@ -4,7 +4,7 @@ const TestBot = require('../test-bot')
 const { CreateUser, GetThread, PostMessage } = require('../lib/helpers')
 
 test('thread', async t => {
-  t.plan(3)
+  t.plan(4)
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
   // const getProfile = GetProfile(apollo, t, GET_PROFILE)
@@ -32,6 +32,12 @@ test('thread', async t => {
     root: msgId
   }, carol)
 
+  // alice responds to one of the comments
+  const msgId4 = await postMessage({
+    text: ':D',
+    root: msgId2
+  }, alice)
+
   // get the thread
   let thread = await getThread(msgId)
 
@@ -58,7 +64,9 @@ test('thread', async t => {
           id: null,
           author: null,
           text: null,
-          root: null
+          root: {
+            id: msgId
+          }
         }
       ]
     },
@@ -66,6 +74,33 @@ test('thread', async t => {
   )
 
   thread = await getThread(msgId2)
+
+  t.deepEquals(
+    thread,
+    {
+      id: msgId2,
+      text: 'Kia ora!',
+      root: {
+        id: msgId
+      },
+      author: {
+        id: bob.id
+      },
+      replies: [
+        {
+          id: msgId4,
+          text: ':D',
+          author: {
+            id: alice.id
+          },
+          root: {
+            id: msgId2
+          }
+        }
+      ]
+    },
+    'response returns the correct thread format'
+  )
 
   ssb.close()
 })

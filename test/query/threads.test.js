@@ -130,7 +130,9 @@ test('threads', async t => {
             id: null,
             author: null,
             text: null,
-            root: null, // TODO?
+            root: {
+              id: msgId
+            },
             replies: []
           }
         ]
