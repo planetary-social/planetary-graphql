@@ -23,7 +23,7 @@ module.exports = function GraphqlServer (ssb) {
     const resolvers = SSBResolvers(ssb)
 
     const apolloServer = new ApolloServer({
-      cache: "bounded",
+      cache: 'bounded',
       typeDefs,
       resolvers,
       plugins: [
