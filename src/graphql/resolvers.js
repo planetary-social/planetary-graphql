@@ -145,6 +145,45 @@ module.exports = function Resolvers (ssb) {
     })
   }
 
+  function mapMessages (thread) {
+    const root = thread.messages[0]
+
+    return {
+      id: root.key,
+      ...root.value.content,
+      author: root.value.author,
+
+      // return all but the first item
+      replies: thread.messages.splice(1)
+    }
+  }
+
+  const getThread = (msgId, opts) => {
+    const { threadMaxSize = 20 } = (opts || {})
+
+    return new Promise((resolve, reject) => {
+      pull(
+        ssb.threads.thread({ root: msgId, reverse: true, threadMaxSize }),
+        pull.take(1), // NOTE: takes one in the collect, so this just prevents the next step from doing more than it needs to
+        pull.collect((err, [thread]) => {
+          if (err) return reject(err)
+          if (!thread || !thread.messages || !thread.messages?.length) return resolve(null)
+
+          const rootAuthor = thread?.messages[0]?.value?.author
+          if (!rootAuthor) return resolve(null)
+
+          canPubliclyHost(rootAuthor)
+            .then(canHost => {
+              if (!canHost) return resolve(null)
+
+              resolve(mapMessages(thread))
+            })
+            .catch(err => reject(err))
+        })
+      )
+    })
+  }
+
   /**
    * Gets all the threads initiated by a certain feed id
    * @param {string} feedId - feedId of a user
@@ -154,7 +193,6 @@ module.exports = function Resolvers (ssb) {
    */
   const getThreadsByFeedId = (feedId, opts) => {
     const { threadMaxSize, limit = 10, cursor } = (opts || {})
-
     let keepSkipping = Boolean(cursor)
 
     const hasMessageInThread = (thread) => thread.messages.some(message => message?.value.author === feedId)
@@ -171,33 +209,33 @@ module.exports = function Resolvers (ssb) {
     }
 
     return new Promise((resolve, reject) => {
-      pull(
-        ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
+      canPubliclyHost(feedId)
+        .then(canHost => {
+          // if there wasnt a profile, that means publicWebHosting == false
+          // so we dont return any threads for this feedId
+          if (!canHost) return resolve([])
 
-        pull.filter(thread => {
-          if (!hasMessageInThread(thread)) return false
+          pull(
+            ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
+            pull.filter(thread => {
+              if (!hasMessageInThread(thread)) return false
 
-          // only skip when need to
-          // this is a naive approach to pagination
-          // by skipping items when there is a cursor
-          if (!keepSkipping) return true
+              // only skip when need to
+              // this is a naive approach to pagination
+              // by skipping items when there is a cursor
+              if (!keepSkipping) return true
 
-          return handleSkip(thread)
-        }),
-        pull.take(limit),
-        pull.collect((err, threads) => {
-          if (err) return reject(err)
+              return handleSkip(thread)
+            }),
+            pull.take(limit),
+            pull.collect((err, threads) => {
+              if (err) return reject(err)
 
-          const res = threads.map(({ messages }) => {
-            return {
-              id: messages[0].key,
-              messages
-            }
-          })
-
-          resolve(res)
+              resolve(threads.map(mapMessages))
+            })
+          )
         })
-      )
+        .catch(err => reject(err))
     })
   }
 
@@ -232,6 +270,21 @@ module.exports = function Resolvers (ssb) {
     return new Promise((resolve, reject) => {
       pull(
         ssb.threads.public({ threadMaxSize, allowlist: ['post'], following: true }),
+        // publicWebHosting check!
+        pullParaMap((thread, cb) => {
+          // see if the feedId that started the thread can publicly host
+          const rootAuthor = thread.messages[0]?.value?.author
+          if (!rootAuthor) return cb(null, null)
+
+          canPubliclyHost(rootAuthor)
+            .then(canHost => {
+              cb(null, canHost ? thread : null)
+            })
+            .catch(err => cb(err))
+        }, 5),
+        // drops all threads started from someone who cannot publicly host
+        pull.filter(Boolean),
+
         pull.filter(thread => {
           if (!hasMessageInThread(thread)) return false
 
@@ -245,14 +298,7 @@ module.exports = function Resolvers (ssb) {
         pull.collect((err, threads) => {
           if (err) return reject(err)
 
-          const res = threads.map(({ messages }) => {
-            return {
-              id: messages[0].key,
-              messages
-            }
-          })
-
-          resolve(res)
+          resolve(threads.map(mapMessages))
         })
       )
     })
@@ -269,6 +315,7 @@ module.exports = function Resolvers (ssb) {
       id: null,
       author: null,
       timestamp: msg.value.timestamp, // asserted publish time
+      root: msg.value.content.root,
       text: null
     }
 
@@ -279,6 +326,7 @@ module.exports = function Resolvers (ssb) {
           message.id = msg.key
           message.author = msg.value.author
           message.text = msg.value.content.text
+          message.root = msg.value.content.root
         }
 
         cb(null, message)
@@ -332,7 +380,7 @@ module.exports = function Resolvers (ssb) {
         return getProfile(alias.userId)
       },
       getInviteCode: () => getRoomInviteCode(),
-
+      getThread: (_, opts) => getThread(opts.msgId, { threadMaxSize: opts.threadMaxSize }),
       getThreads: (_, opts = {}) => {
         return opts.feedId
           ? getThreadsByFeedId(opts.feedId, opts)
@@ -392,24 +440,34 @@ module.exports = function Resolvers (ssb) {
     },
 
     Thread: {
-      messages: (parent) => new Promise((resolve, reject) => {
-        pull(
-          pull.values(parent.messages),
-          pullParaMap(publicifyMessage, 5),
-          pull.collect((err, res) => err ? reject(err) : resolve(res))
-        )
-      })
-    },
+      replies: async (parent) => {
+        if (!parent.id) return []
 
-    Comment: {
-      author: (parent) => getProfile(parent.author),
-      replies: (parent) => {
+        let replies = parent.replies
+
+        if (!replies) {
+          const thread = await getThread(parent.id)
+          replies = thread.replies
+        }
+
+        return new Promise((resolve, reject) => {
+          pull(
+            pull.values(replies),
+            pullParaMap(publicifyMessage, 5),
+            pull.collect((err, res) => err ? reject(err) : resolve(res))
+          )
+        })
       },
-
+      author: (parent) => getProfile(parent.author),
       votes: (parent) => getVotes(parent.id),
       votesCount: async (parent) => {
         const votes = await getVotes(parent.id)
         return votes?.length
+      },
+      root: (parent) => {
+        if (!parent.root) return null
+
+        return getThread(parent.root)
       }
     },
 

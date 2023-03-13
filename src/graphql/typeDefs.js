@@ -23,19 +23,21 @@ module.exports = gql`
   }
 
   type Thread {
+    # id of the message
     id: ID
-    messages: [Comment]
-    # repliesCount: Int
-  }
 
-  type Comment {
-    id: ID
+    # link to root message, if there is one
+    root: Thread
+
+    # message fields
     author: Profile
     text: String
     timestamp: Float
     votes: [Vote]
     votesCount: Int
-    replies: [Comment]
+
+    # responses
+    replies: [Thread]
   }
 
   type Vote {
@@ -64,7 +66,10 @@ module.exports = gql`
     getProfiles(limit: Int): [Profile]
 
   
-    # getThread(id: ID!, preview: Boolean): Thread
+    """
+    gets a single thread by a messageId
+    """
+    getThread(msgId: ID!, maxThreadSize: Int): Thread
 
     """
     gets the threads by a member when an id is provided,

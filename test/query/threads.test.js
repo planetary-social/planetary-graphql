@@ -3,7 +3,7 @@ const { promisify: p } = require('util')
 const gql = require('graphql-tag')
 
 const TestBot = require('../test-bot')
-const { CreateUser, GetProfile, GetThreads, sleep } = require('../lib/helpers')
+const { CreateUser, GetProfile, GetThreads, PostMessage, sleep } = require('../lib/helpers')
 
 const GET_PROFILE = gql`
 query getProfile ($id: ID!) {
@@ -11,38 +11,39 @@ query getProfile ($id: ID!) {
     id
     threads {
       id
-      messages {
+      text
+      author {
+        id
+      }
+      root {
+        id
+      }
+      replies {
         id
         text
         author {
           id
+        }
+        root {
+          id
+        }
+        replies {
+          id
+          text
+          root {
+            id
+          }
+          author {
+            id
+          }
         }
       }
     }
   }
 }
 `
-
-const PostMessage = (ssb) => {
-  return async function postMessage (content = {}, user) {
-    const res = await p(ssb.db.create)({
-      content: {
-        type: 'post',
-        ...content
-      },
-      keys: user.keys
-    })
-
-    // hack: we need this here because messages
-    // post too quickly, resulting in threads being out of order
-    await sleep(500)
-
-    return res.key
-  }
-}
-
 test('threads', async t => {
-  t.plan(2)
+  t.plan(4)
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
   const getProfile = GetProfile(apollo, t, GET_PROFILE)
@@ -65,50 +66,97 @@ test('threads', async t => {
   }, bob)
 
   // so does someone who has opted out of public web hosting
-  /* const msgId3 = */await postMessage({
+  await postMessage({
     text: 'Bonjour!',
     root: msgId
   }, carol)
 
+  // reply to a reply
+  const msgId4 = await postMessage({
+    text: ':D',
+    root: msgId2
+  }, alice)
+
   // get the threads
-  const profile = await getProfile(alice.id)
+  let profile = await getProfile(alice.id)
+
+  const expected = {
+    id: alice.id,
+    threads: [
+      {
+        id: msgId2,
+        text: 'Kia ora!',
+        author: {
+          id: bob.id
+        },
+        root: {
+          id: msgId
+        },
+        replies: [
+          {
+            id: msgId4,
+            text: ':D',
+            author: { id: alice.id },
+            root: { id: msgId2 },
+            replies: []
+          }
+        ]
+      },
+      {
+        id: msgId,
+        text: 'Say hi!',
+        author: { id: alice.id },
+        root: null,
+        replies: [
+          {
+            id: msgId2,
+            text: 'Kia ora!',
+            author: { id: bob.id },
+            root: { id: msgId },
+            replies: [
+              // NOT showing this for some reason
+              {
+                id: msgId4,
+                text: ':D',
+                root: {
+                  id: msgId2
+                },
+                author: { id: alice.id }
+              }
+            ]
+          },
+          { // publicWebHosting for this author is false
+            // meaning it returns an empty message instead
+            id: null,
+            author: null,
+            text: null,
+            root: {
+              id: msgId
+            },
+            replies: []
+          }
+        ]
+      }
+    ]
+  }
 
   t.deepEquals(
     profile,
-    {
-      id: alice.id,
-      threads: [
-        {
-          id: msgId,
-          messages: [
-            {
-              id: msgId,
-              author: { id: alice.id },
-              text: 'Say hi!'
-            },
-            {
-              id: msgId2,
-              author: { id: bob.id },
-              text: 'Kia ora!'
-            },
-            { // publicWebHosting for this author is false
-              // meaning it returns an empty message instead
-              id: null,
-              author: null,
-              text: null
-            }
-          ]
-        }
-      ]
-    },
+    expected,
     'returns the correct threads in the message'
   )
+
+  /*
+    public web hosting check
+  */
+  profile = await getProfile(carol.id)
+  t.false(profile, 'doesnt return a profile for someone publicWebHosting=false')
 
   ssb.close()
 })
 
 test('paginate threads by user', async t => {
-  t.plan(13)
+  t.plan(15)
 
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
@@ -181,6 +229,12 @@ test('paginate threads by user', async t => {
   threads = await getThreads({ feedId: alice.id, limit: 1, cursor: lastThread.id })
   t.deepEqual(threads, [], 'no more threads')
 
+  /*
+    public web hosting check!
+  */
+  threads = await getThreads({ feedId: carol.id })
+  t.deepEqual(threads, [], 'doesnt return any threads for someone who has publicWebHosting=false')
+
   ssb.close()
 })
 
@@ -188,7 +242,7 @@ test('paginate threads by user', async t => {
 // instead of from a single user, it looks at threads from
 // all of the members
 test('paginate threads by members', async t => {
-  t.plan(13)
+  t.plan(15)
 
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
@@ -281,6 +335,20 @@ test('paginate threads by members', async t => {
 
   threads = await getThreads({ limit: 1, cursor: lastThread.id })
   t.deepEqual(threads, [], 'no more threads')
+
+  /*
+    public web hosting check!
+  */
+  const msgId6 = await postMessage({
+    text: 'No one can see this?'
+  }, carol)
+
+  threads = await getThreads()
+
+  t.false(
+    threads.some(thread => thread.id === msgId6),
+    'doesnt retun the message from the member with publicWebHosting=false'
+  )
 
   ssb.close()
 })
