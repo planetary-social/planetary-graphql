@@ -43,7 +43,7 @@ query getProfile ($id: ID!) {
 }
 `
 test('threads', async t => {
-  t.plan(2)
+  t.plan(4)
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
   const getProfile = GetProfile(apollo, t, GET_PROFILE)
@@ -66,7 +66,7 @@ test('threads', async t => {
   }, bob)
 
   // so does someone who has opted out of public web hosting
-  /* const msgId3 = */await postMessage({
+  await postMessage({
     text: 'Bonjour!',
     root: msgId
   }, carol)
@@ -78,7 +78,7 @@ test('threads', async t => {
   }, alice)
 
   // get the threads
-  const profile = await getProfile(alice.id)
+  let profile = await getProfile(alice.id)
 
   const expected = {
     id: alice.id,
@@ -146,11 +146,17 @@ test('threads', async t => {
     'returns the correct threads in the message'
   )
 
+  /*
+    public web hosting check
+  */
+  profile = await getProfile(carol.id)
+  t.false(profile, 'doesnt return a profile for someone publicWebHosting=false')
+
   ssb.close()
 })
 
 test('paginate threads by user', async t => {
-  t.plan(13)
+  t.plan(15)
 
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
@@ -223,6 +229,12 @@ test('paginate threads by user', async t => {
   threads = await getThreads({ feedId: alice.id, limit: 1, cursor: lastThread.id })
   t.deepEqual(threads, [], 'no more threads')
 
+  /*
+    public web hosting check!
+  */
+  threads = await getThreads({ feedId: carol.id })
+  t.deepEqual(threads, [], 'doesnt return any threads for someone who has publicWebHosting=false')
+
   ssb.close()
 })
 
@@ -230,7 +242,7 @@ test('paginate threads by user', async t => {
 // instead of from a single user, it looks at threads from
 // all of the members
 test('paginate threads by members', async t => {
-  t.plan(13)
+  t.plan(15)
 
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
@@ -323,6 +335,20 @@ test('paginate threads by members', async t => {
 
   threads = await getThreads({ limit: 1, cursor: lastThread.id })
   t.deepEqual(threads, [], 'no more threads')
+
+  /*
+    public web hosting check!
+  */
+  const msgId6 = await postMessage({
+    text: 'No one can see this?'
+  }, carol)
+
+  threads = await getThreads()
+
+  t.false(
+    threads.some(thread => thread.id === msgId6),
+    'doesnt retun the message from the member with publicWebHosting=false'
+  )
 
   ssb.close()
 })

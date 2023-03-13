@@ -169,7 +169,16 @@ module.exports = function Resolvers (ssb) {
           if (err) return reject(err)
           if (!thread || !thread.messages || !thread.messages?.length) return resolve(null)
 
-          resolve(mapMessages(thread))
+          const rootAuthor = thread?.messages[0]?.value?.author
+          if (!rootAuthor) return resolve(null)
+
+          canPubliclyHost(rootAuthor)
+            .then(canHost => {
+              if (!canHost) return resolve(null)
+
+              resolve(mapMessages(thread))
+            })
+            .catch(err => reject(err))
         })
       )
     })
@@ -184,7 +193,6 @@ module.exports = function Resolvers (ssb) {
    */
   const getThreadsByFeedId = (feedId, opts) => {
     const { threadMaxSize, limit = 10, cursor } = (opts || {})
-
     let keepSkipping = Boolean(cursor)
 
     const hasMessageInThread = (thread) => thread.messages.some(message => message?.value.author === feedId)
@@ -201,26 +209,33 @@ module.exports = function Resolvers (ssb) {
     }
 
     return new Promise((resolve, reject) => {
-      pull(
-        ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
+      canPubliclyHost(feedId)
+        .then(canHost => {
+          // if there wasnt a profile, that means publicWebHosting == false
+          // so we dont return any threads for this feedId
+          if (!canHost) return resolve([])
 
-        pull.filter(thread => {
-          if (!hasMessageInThread(thread)) return false
+          pull(
+            ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
+            pull.filter(thread => {
+              if (!hasMessageInThread(thread)) return false
 
-          // only skip when need to
-          // this is a naive approach to pagination
-          // by skipping items when there is a cursor
-          if (!keepSkipping) return true
+              // only skip when need to
+              // this is a naive approach to pagination
+              // by skipping items when there is a cursor
+              if (!keepSkipping) return true
 
-          return handleSkip(thread)
-        }),
-        pull.take(limit),
-        pull.collect((err, threads) => {
-          if (err) return reject(err)
+              return handleSkip(thread)
+            }),
+            pull.take(limit),
+            pull.collect((err, threads) => {
+              if (err) return reject(err)
 
-          resolve(threads.map(mapMessages))
+              resolve(threads.map(mapMessages))
+            })
+          )
         })
-      )
+        .catch(err => reject(err))
     })
   }
 
@@ -255,6 +270,21 @@ module.exports = function Resolvers (ssb) {
     return new Promise((resolve, reject) => {
       pull(
         ssb.threads.public({ threadMaxSize, allowlist: ['post'], following: true }),
+        // publicWebHosting check!
+        pullParaMap((thread, cb) => {
+          // see if the feedId that started the thread can publicly host
+          const rootAuthor = thread.messages[0]?.value?.author
+          if (!rootAuthor) return cb(null, null)
+
+          canPubliclyHost(rootAuthor)
+            .then(canHost => {
+              cb(null, canHost ? thread : null)
+            })
+            .catch(err => cb(err))
+        }, 5),
+        // drops all threads started from someone who cannot publicly host
+        pull.filter(Boolean),
+
         pull.filter(thread => {
           if (!hasMessageInThread(thread)) return false
 

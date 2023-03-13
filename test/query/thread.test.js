@@ -4,7 +4,7 @@ const TestBot = require('../test-bot')
 const { CreateUser, GetThread, PostMessage } = require('../lib/helpers')
 
 test('thread', async t => {
-  t.plan(4)
+  t.plan(6)
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
   // const getProfile = GetProfile(apollo, t, GET_PROFILE)
@@ -27,7 +27,7 @@ test('thread', async t => {
     root: msgId
   }, bob)
 
-  /* const msgId3 = */await postMessage({
+  const msgId3 = await postMessage({
     text: 'Bonjour!',
     root: msgId
   }, carol)
@@ -101,6 +101,14 @@ test('thread', async t => {
     },
     'response returns the correct thread format'
   )
+
+  /*
+    public web hosting check!
+  */
+
+  // try get the thread from the user who has publicWebHosting=false
+  thread = await getThread(msgId3)
+  t.false(thread, 'does not return the thread for someone who has publicWebHosting=false')
 
   ssb.close()
 })
