@@ -217,6 +217,24 @@ module.exports = function Resolvers (ssb) {
 
           pull(
             ssb.threads.profile({ id: feedId, reverse: true, threadMaxSize, allowlist: ['post'] }),
+            // public web hosting check!
+            // NOTE: this drops all threads started by someone who has publicWebHosting=false
+            // this may not be the desired result we want as we may want to show someones responses
+            // to something that is not publicly available
+            pullParaMap((thread, cb) => {
+              // see if the feedId that started the thread can publicly host
+              const rootAuthor = thread.messages[0]?.value?.author
+              if (!rootAuthor) return cb(null, null)
+
+              canPubliclyHost(rootAuthor)
+                .then(canHost => {
+                  cb(null, canHost ? thread : null)
+                })
+                .catch(err => cb(err))
+            }, 5),
+            pull.filter(Boolean),
+
+            // pagination!
             pull.filter(thread => {
               if (!hasMessageInThread(thread)) return false
 
