@@ -129,6 +129,7 @@ const GET_THREAD = gql`
     getThread(msgId: $msgId) {
       id
       text
+      timestamp
       root {
         id
       }
