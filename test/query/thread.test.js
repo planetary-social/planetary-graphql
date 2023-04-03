@@ -4,7 +4,7 @@ const TestBot = require('../test-bot')
 const { CreateUser, GetThread, PostMessage } = require('../lib/helpers')
 
 test('thread', async t => {
-  t.plan(6)
+  t.plan(8)
   const { ssb, apollo } = await TestBot()
   const createUser = CreateUser(ssb)
   // const getProfile = GetProfile(apollo, t, GET_PROFILE)
@@ -41,12 +41,15 @@ test('thread', async t => {
   // get the thread
   let thread = await getThread(msgId)
 
+  t.true(thread.timestamp, 'a timestamp was returned')
+
   t.deepEquals(
     thread,
     {
       id: msgId,
       text: 'Say hi!',
       root: null,
+      timestamp: thread.timestamp,
       author: {
         id: alice.id
       },
@@ -75,11 +78,14 @@ test('thread', async t => {
 
   thread = await getThread(msgId2)
 
+  t.true(thread.timestamp, 'a timestamp was returned')
+
   t.deepEquals(
     thread,
     {
       id: msgId2,
       text: 'Kia ora!',
+      timestamp: thread.timestamp,
       root: {
         id: msgId
       },

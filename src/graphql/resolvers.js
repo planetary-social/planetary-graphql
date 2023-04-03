@@ -152,6 +152,7 @@ module.exports = function Resolvers (ssb) {
       id: root.key,
       ...root.value.content,
       author: root.value.author,
+      timestamp: root.value.timestamp,
 
       // return all but the first item
       replies: thread.messages.splice(1)
